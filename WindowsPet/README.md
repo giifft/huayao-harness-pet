@@ -16,3 +16,9 @@ dotnet publish WindowsPet/Desktop -c Release -r win-x64 --self-contained true -o
 ```
 
 读取器验证可运行 `dotnet run --project WindowsPet/ReaderSmoke -c Release`。
+
+## 饭制声明与立绘使用
+
+本桌宠为越剧《花妖》饭制作品。本案立绘与人物形象不对外授权，禁止商用，仅作越剧《花妖》宣传之用，无商业用途。
+
+二创产生的一切衍生权益归越剧《花妖》出品人李旭丹女士所有。
