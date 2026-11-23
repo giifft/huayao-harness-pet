@@ -1,0 +1,8 @@
+.DS_Store
+/.huayao-build.*/
+/花妖桌宠.app/
+/Harness 插件发布包/
+/小红书发布素材/
+/Windows 桌宠发布包/
+**/bin/
+**/obj/

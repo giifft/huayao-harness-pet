@@ -1,0 +1,253 @@
+.huayao-desktop {
+  --hy-paper: #fff8ee;
+  --hy-ink: #382822;
+  --hy-rose: #8c4355;
+  --hy-border: #d8beb2;
+  --hy-shadow: 0 4px 16px #2e1c211c;
+  position: absolute;
+  z-index: 2;
+  inset-inline-end: clamp(12px, 3vw, 40px);
+  bottom: clamp(16px, 5vh, 54px);
+  width: 214px;
+  color: var(--hy-ink);
+  pointer-events: none !important;
+  text-align: center;
+  font: 13px/1.45 "Kaiti SC", "KaiTi", "Songti SC", "Microsoft YaHei", system-ui, serif;
+}
+
+.huayao-desktop button {
+  appearance: none;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+  pointer-events: auto;
+}
+
+.huayao-desktop button:focus-visible,
+.huayao-desktop input:focus-visible {
+  outline: 2px solid var(--hy-rose);
+  outline-offset: 3px;
+}
+
+.huayao-desktop__stage {
+  position: relative;
+  height: min(230px, 46vh);
+  display: grid;
+  place-items: end center;
+}
+
+.huayao-desktop__actions {
+  position: absolute;
+  z-index: 1;
+  top: 0;
+  right: 0;
+  display: flex;
+  gap: 4px;
+}
+
+.huayao-desktop__actions button,
+.huayao-desktop__badge {
+  background: var(--hy-paper);
+  border: 1px solid var(--hy-border);
+  border-radius: 999px;
+  padding: 3px 9px;
+  box-shadow: var(--hy-shadow);
+}
+
+.huayao-desktop__actions button:hover,
+.huayao-desktop__badge:hover {
+  background: #f7e5df;
+}
+
+.huayao-desktop__badge {
+  margin-inline-start: auto;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 6px 10px;
+}
+
+.huayao-desktop__compact-status {
+  padding-inline-start: 6px;
+  border-inline-start: 1px solid var(--hy-border);
+  color: #68544d;
+  font-size: 12px;
+}
+
+.huayao-desktop__speech {
+  position: absolute;
+  z-index: 1;
+  top: 31px;
+  max-width: 100%;
+  padding: 7px 10px;
+  border: 1px solid var(--hy-border);
+  background: var(--hy-paper);
+  border-radius: 11px;
+  box-shadow: var(--hy-shadow);
+}
+
+.huayao-desktop__actor {
+  display: grid;
+  place-items: end center;
+  width: max-content;
+  max-width: 100%;
+  border: 0;
+  background: none;
+  padding: 0;
+  margin: 0 0 3px;
+}
+
+.huayao-desktop__actor img {
+  display: block;
+  height: min(155px, 31vh);
+  max-width: 210px;
+  object-fit: contain;
+  filter: drop-shadow(0 3px 5px #39252a44);
+}
+
+.huayao-desktop__stage[data-mode="duo"] .huayao-desktop__actor img {
+  height: min(175px, 34vh);
+}
+
+.huayao-desktop__actor img[data-hop] {
+  animation: huayao-desktop-hop .38s cubic-bezier(.36,.08,.41,.93);
+}
+
+@keyframes huayao-desktop-hop {
+  45% { transform: translateY(-10px) rotate(-2deg); }
+}
+
+.huayao-desktop__status {
+  width: max-content;
+  max-width: 100%;
+  margin: 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 3px 10px;
+  background: var(--hy-paper);
+  border: 1px solid var(--hy-border);
+  border-radius: 999px;
+  box-shadow: var(--hy-shadow);
+  font: 12px/1.4 "Microsoft YaHei", "PingFang SC", system-ui, sans-serif;
+}
+
+.huayao-desktop__dot {
+  display: inline-block;
+  flex: 0 0 7px;
+  width: 7px;
+  height: 7px;
+  background-color: #887e75;
+  border-radius: 50%;
+}
+
+.huayao-desktop__dot[data-state="idle"] { background-color: #497d69; }
+.huayao-desktop__dot[data-state="thinking"] { background-color: #ac792d; }
+.huayao-desktop__dot[data-state="waiting"] { background-color: #ac792d; }
+.huayao-desktop__dot[data-state="working"] { background-color: #ae4858; }
+.huayao-desktop__dot[data-state="done"] { background-color: #32834e; }
+.huayao-desktop__dot[data-state="error"] { background-color: #b54243; }
+
+.huayao-desktop__picker {
+  position: absolute;
+  right: 0;
+  bottom: calc(100% + 8px);
+  width: min(268px, calc(100vw - 24px));
+  padding: 10px;
+  box-sizing: border-box;
+  border: 1px solid var(--hy-border);
+  border-radius: 14px;
+  background: var(--hy-paper);
+  box-shadow: var(--hy-shadow);
+  pointer-events: auto;
+}
+
+.huayao-desktop__tabs {
+  display: flex;
+  gap: 4px;
+  margin-bottom: 8px;
+}
+
+.huayao-desktop__tabs button {
+  flex: 1;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  padding: 5px 2px;
+  white-space: nowrap;
+  background: transparent;
+}
+
+.huayao-desktop__tabs span { opacity: .8; }
+.huayao-desktop__tabs button[aria-pressed="true"] {
+  border-color: #dbb4b7;
+  background: #f6e2e1;
+}
+
+.huayao-desktop__poses {
+  display: grid;
+  grid-template-columns: repeat(3,minmax(0,1fr));
+  gap: 4px;
+  max-height: min(205px, 28vh);
+  overflow: auto;
+  padding: 2px 4px 3px 2px;
+}
+
+.huayao-desktop__pose {
+  min-width: 0;
+  min-height: 63px;
+  padding: 4px 0;
+  display: grid;
+  justify-items: center;
+  gap: 3px;
+  border: 1px solid transparent;
+  border-radius: 7px;
+  background: #f9ecde;
+}
+
+.huayao-desktop__pose:hover,
+.huayao-desktop__pose[aria-pressed="true"] {
+  border-color: #aa6372;
+  background: #f6e2e1;
+}
+.huayao-desktop__pose img { width: 52px; height: 46px; object-fit: contain; }
+.huayao-desktop__pose span { font-size: 11px; }
+
+.huayao-desktop__toggle {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  justify-content: start;
+  padding: 7px 0 0;
+}
+
+.huayao-desktop__toggle input { accent-color: var(--hy-rose); }
+.huayao-desktop__petals {
+  position: absolute;
+  inset: 28px 8px 7px;
+  overflow: hidden;
+  pointer-events: none;
+}
+.huayao-desktop__petals i {
+  position: absolute;
+  top: -7px;
+  width: 7px;
+  height: 10px;
+  border-radius: 74% 30% 71% 38%;
+  background: #e694ab;
+  opacity: .53;
+  animation: huayao-desktop-fall linear infinite;
+}
+
+@keyframes huayao-desktop-fall {
+  to { transform: translate(32px, 205px) rotate(200deg); opacity: 0; }
+}
+
+@media (max-height: 520px) {
+  .huayao-desktop { bottom: 9px; }
+  .huayao-desktop__poses { max-height: min(160px, 24vh); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .huayao-desktop__actor img,
+  .huayao-desktop__petals i { animation: none !important; }
+  .huayao-desktop__petals { display: none; }
+}
