@@ -1,0 +1,50 @@
+name: Windows desktop smoke test
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'WindowsPet/**'
+      - 'Resources/Pets/**'
+      - '.github/workflows/windows-pet.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+
+jobs:
+  smoke:
+    runs-on: windows-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+      - name: Exercise Harness state reader
+        run: dotnet run --project WindowsPet/ReaderSmoke -c Release
+      - name: Build self-contained Windows app
+        run: dotnet publish WindowsPet/Desktop -c Release -r win-x64 --self-contained true -o pet-win-x64
+      - name: Start the desktop pet on Windows
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $out = (Resolve-Path "pet-win-x64").Path
+          if ((Get-ChildItem "$out/Pets" -File -Filter "*.png").Count -ne 33) { throw "Expected 33 portraits." }
+          $env:DSH_HOME = Join-Path $env:RUNNER_TEMP "empty-harness-home"
+          $pet = Start-Process (Join-Path $out "HuaYaoPet.exe") -PassThru -WorkingDirectory $env:RUNNER_TEMP
+          try {
+            $windowReady = $false
+            for ($i = 0; $i -lt 32; $i++) {
+              Start-Sleep -Milliseconds 300
+              $pet.Refresh()
+              if ($pet.HasExited) { throw "The app exited during launch (code $($pet.ExitCode))." }
+              if ($pet.MainWindowHandle -ne [IntPtr]::Zero) {
+                $windowReady = $true
+                break
+              }
+            }
+            if (-not $windowReady) { throw "The desktop window did not become visible." }
+            Write-Output "WPF window created on Windows x64, process $($pet.Id)."
+          }
+          finally {
+            if (-not $pet.HasExited) { Stop-Process -Id $pet.Id }
+          }
