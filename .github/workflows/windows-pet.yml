@@ -30,6 +30,39 @@ jobs:
           $out = (Resolve-Path "pet-win-x64").Path
           if ((Get-ChildItem "$out/Pets" -File -Filter "*.png").Count -ne 33) { throw "Expected 33 portraits." }
           $env:DSH_HOME = Join-Path $env:RUNNER_TEMP "empty-harness-home"
+          Add-Type @'
+          using System;
+          using System.Runtime.InteropServices;
+          using System.Text;
+          public static class PetWindows
+          {
+              private delegate bool Visit(IntPtr hwnd, IntPtr unused);
+              [DllImport("user32.dll")]
+              private static extern bool EnumWindows(Visit callback, IntPtr data);
+              [DllImport("user32.dll")]
+              private static extern bool IsWindowVisible(IntPtr hwnd);
+              [DllImport("user32.dll")]
+              private static extern uint GetWindowThreadProcessId(IntPtr hwnd, out uint processId);
+              [DllImport("user32.dll", CharSet = CharSet.Unicode)]
+              private static extern int GetWindowText(IntPtr hwnd, StringBuilder text, int limit);
+              public static bool HasVisiblePetWindow(uint expectedPid, string title)
+              {
+                  bool found = false;
+                  EnumWindows((hwnd, unused) => {
+                      uint pid;
+                      GetWindowThreadProcessId(hwnd, out pid);
+                      if (pid != expectedPid || !IsWindowVisible(hwnd)) return true;
+                      var caption = new StringBuilder(100);
+                      GetWindowText(hwnd, caption, caption.Capacity);
+                      if (caption.ToString() != title) return true;
+                      found = true;
+                      return false;
+                  }, IntPtr.Zero);
+                  return found;
+              }
+          }
+          '@
+          # A WPF window with ShowInTaskbar=false has an owner, so MainWindowHandle excludes it.
           $pet = Start-Process (Join-Path $out "HuaYaoPet.exe") -PassThru -WorkingDirectory $env:RUNNER_TEMP
           try {
             $windowReady = $false
@@ -37,12 +70,15 @@ jobs:
               Start-Sleep -Milliseconds 300
               $pet.Refresh()
               if ($pet.HasExited) { throw "The app exited during launch (code $($pet.ExitCode))." }
-              if ($pet.MainWindowHandle -ne [IntPtr]::Zero) {
+              if ([PetWindows]::HasVisiblePetWindow($pet.Id, '花妖桌宠')) {
                 $windowReady = $true
                 break
               }
             }
             if (-not $windowReady) { throw "The desktop window did not become visible." }
+            Start-Sleep -Milliseconds 1000
+            $pet.Refresh()
+            if ($pet.HasExited) { throw "The app exited after launch (code $($pet.ExitCode))." }
             Write-Output "WPF window created on Windows x64, process $($pet.Id)."
           }
           finally {
