@@ -12,7 +12,7 @@
 
 ## 独立桌宠
 
-独立版浮在系统桌面，可换立绘、点人物看台词、拖动、调大小和置顶。
+独立版浮在系统桌面，可换立绘、点人物看台词、拖动、调大小和置顶。请在[独立桌宠 Release](https://github.com/giifft/huayao-harness-pet/releases/tag/desktop-v1.2.0)里下载对应系统的 ZIP 和安装 PDF。
 
 | 系统 | 要求 | 使用方式 |
 | --- | --- | --- |
