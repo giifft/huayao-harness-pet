@@ -7,9 +7,9 @@
 <p align="center">
   <a href="LICENSE"><img alt="代码许可 MIT" src="https://img.shields.io/badge/Code%20License-MIT-yellow"></a>
   <a href="NOTICE-ARTWORK.zh-CN.txt"><img alt="立绘不对外授权，禁止商用" src="https://img.shields.io/badge/Artwork-Promotion%20Only-8c4355"></a>
-  <a href="https://github.com/giifft/huayao-harness-pet/releases/tag/v1.2.2"><img alt="macOS 独立版 v1.2.2" src="https://img.shields.io/badge/macOS-v1.2.2-446d62"></a>
-  <a href="https://github.com/giifft/huayao-harness-pet/releases/tag/v1.2.2"><img alt="Windows 独立版 v1.0.2" src="https://img.shields.io/badge/Windows-v1.0.2-3575ad"></a>
-  <a href="https://github.com/giifft/huayao-harness-pet/releases/tag/v1.2.2"><img alt="Harness 插件 v1.1.1" src="https://img.shields.io/badge/Harness%20Plugin-v1.1.1-8c4355"></a>
+  <a href="https://github.com/giifft/huayao-harness-pet/releases/tag/v1.2.3"><img alt="macOS 独立版 v1.2.3" src="https://img.shields.io/badge/macOS-v1.2.3-446d62"></a>
+  <a href="https://github.com/giifft/huayao-harness-pet/releases/tag/v1.2.3"><img alt="Windows 独立版 v1.0.3" src="https://img.shields.io/badge/Windows-v1.0.3-3575ad"></a>
+  <a href="https://github.com/giifft/huayao-harness-pet/releases/tag/v1.2.3"><img alt="Harness 插件 v1.1.2" src="https://img.shields.io/badge/Harness%20Plugin-v1.1.2-8c4355"></a>
   <a href="https://github.com/giifft/huayao-harness-pet/actions/workflows/windows-pet.yml"><img alt="Windows 自动启动测试" src="https://github.com/giifft/huayao-harness-pet/actions/workflows/windows-pet.yml/badge.svg?branch=main"></a>
 </p>
 
@@ -30,15 +30,15 @@
 
 ### 双人 Q 版输入法设计预览
 
-「红袖偷笑」与「袖里藏花」的角色也可在桌宠双人模式选用。下图展示两款皮肤的九键与桌面候选窗设计。
+桌宠双人模式收录了 5 款输入法 Q 版立绘，涵盖「花落谁头上」「红袖偷笑」（相望、贴近）和「袖里藏花」（微笑、惊讶）。三个主题的九键设计见下图。
 
-<img src="docs/screenshots/ime-duo-preview.png" width="710" alt="红袖偷笑与袖里藏花的双人 Q 版输入法皮肤设计">
+<img src="docs/screenshots/ime-duo-preview.png" width="710" alt="花落谁头上、红袖偷笑与袖里藏花的九键输入法皮肤设计">
 
 ## 桌宠能做什么
 
 | 玩法 | 说明 |
 | --- | --- |
-| **三种角色模式** | 双人模式使用 18 款双人、13 款花旦和 4 款小生 Q 版立绘。可以按缩略图挑选，三个模式各自记住上次使用的造型。 |
+| **三种角色模式** | 内置 21 款双人、13 款花旦和 4 款小生 Q 版立绘。可以按缩略图挑选，三个模式各自记住上次使用的造型。 |
 | **点击回话与花瓣** | 点人物会轻跳并弹出台词。花瓣可以关闭，独立版还可开关自动闲聊。 |
 | **摆放桌面** | 独立版可以拖动、缩放、置顶或移到右下角。Windows 可用任务栏通知区域的图标显示、隐藏和退出桌宠。 |
 | **AI 状态提醒** | 支持显示思考、调用工具、待确认、完成等状态。需要确认时，在对应 AI 应用里处理。 |
@@ -58,9 +58,9 @@
 
 | 版本 | 系统或应用要求 | 下载 |
 | --- | --- | --- |
-| **Windows 独立版 v1.0.2** | Windows 10 22H2 或 Windows 11，x64 | [Windows ZIP](https://github.com/giifft/huayao-harness-pet/releases/download/v1.2.2/huayao-desktop-windows-x64.zip) |
-| **macOS 独立版 v1.2.2** | Apple 芯片，macOS 13 或更新 | [macOS ZIP](https://github.com/giifft/huayao-harness-pet/releases/download/v1.2.2/huayao-desktop-macos-arm64.zip) |
-| **Harness 插件 v1.1.1** | 支持安装第三方插件的 DeepSeek Harness | [插件 TGZ](https://github.com/giifft/huayao-harness-pet/releases/download/v1.2.2/huayao-harness-pet-1.1.1.tgz) |
+| **Windows 独立版 v1.0.3** | Windows 10 22H2 或 Windows 11，x64 | [Windows ZIP](https://github.com/giifft/huayao-harness-pet/releases/download/v1.2.3/huayao-desktop-windows-x64.zip) |
+| **macOS 独立版 v1.2.3** | Apple 芯片，macOS 13 或更新 | [macOS ZIP](https://github.com/giifft/huayao-harness-pet/releases/download/v1.2.3/huayao-desktop-macos-arm64.zip) |
+| **Harness 插件 v1.1.2** | 支持安装第三方插件的 DeepSeek Harness | [插件 TGZ](https://github.com/giifft/huayao-harness-pet/releases/download/v1.2.3/huayao-harness-pet-1.1.2.tgz) |
 
 1. **Windows**　完整解压 ZIP，打开 `HuaYaoPet-Windows-x64` 文件夹并双击 `HuaYaoPet.exe`。把 EXE 和同目录的文件一并保留。
 2. **macOS**　解压 ZIP，把「花妖桌宠.app」拖到「应用程序」后打开。顶部菜单栏的戏曲面具图标可以打开菜单。
@@ -108,7 +108,7 @@ Windows 安装包为自包含构建，未做数字签名。macOS 安装包适用
 
 macOS 版支持豆包桌面端联动，覆盖当前窗口里的普通对话。豆包联动默认关闭。在花妖桌宠菜单单独开启「AI 联动 → 豆包」，并在 macOS「系统设置 → 隐私与安全性 → 辅助功能」为花妖桌宠授权。桌宠仅在豆包位于前台时读取普通对话的可访问文本。回复连续更新时，桌宠会提示正在回话，停止更新约 7 秒后回到空闲。聊天文本仅在本地内存中用于比对变化。短回复可能在轮询间隔内结束，因此可能跳过正在回话的提示。
 
-[当前版本 Release](https://github.com/giifft/huayao-harness-pet/releases/tag/v1.2.2) 提供 macOS v1.2.2、Windows v1.0.2 和 Harness 插件 v1.1.1。
+[当前版本 Release](https://github.com/giifft/huayao-harness-pet/releases/tag/v1.2.3) 提供 macOS v1.2.3、Windows v1.0.3 和 Harness 插件 v1.1.2。
 
 ## 代码许可与立绘使用
 

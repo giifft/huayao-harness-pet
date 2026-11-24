@@ -35,7 +35,7 @@ jobs:
         run: |
           $ErrorActionPreference = 'Stop'
           $out = (Resolve-Path "pet-win-x64").Path
-          foreach ($group in @(@{ Prefix = 'duo'; Count = 18 }, @{ Prefix = 'hua'; Count = 13 }, @{ Prefix = 'sheng'; Count = 4 })) {
+          foreach ($group in @(@{ Prefix = 'duo'; Count = 21 }, @{ Prefix = 'hua'; Count = 13 }, @{ Prefix = 'sheng'; Count = 4 })) {
             $portraits = Get-ChildItem "$out/Pets" -File -Filter "$($group.Prefix)_*.png"
             if ($portraits.Count -ne $group.Count) { throw "Expected $($group.Count) $($group.Prefix) portraits." }
           }
