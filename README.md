@@ -28,12 +28,6 @@
   <img src="docs/screenshots/macos-desktop.png" width="235" alt="macOS 花妖桌宠，Q 版执手对望">
 </p>
 
-### 双人 Q 版输入法设计预览
-
-桌宠双人模式收录了 5 款输入法 Q 版立绘，涵盖「花落谁头上」「红袖偷笑」（相望、贴近）和「袖里藏花」（微笑、惊讶）。三个主题的九键设计见下图。
-
-<img src="docs/screenshots/ime-duo-preview.png" width="710" alt="花落谁头上、红袖偷笑与袖里藏花的九键输入法皮肤设计">
-
 ## 桌宠能做什么
 
 | 玩法 | 说明 |
