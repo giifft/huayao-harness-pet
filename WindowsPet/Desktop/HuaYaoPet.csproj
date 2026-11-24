@@ -7,12 +7,13 @@
     <UseWindowsForms>true</UseWindowsForms>
     <Nullable>enable</Nullable>
     <AssemblyName>HuaYaoPet</AssemblyName>
-    <Version>1.0.0</Version>
+    <Version>1.0.2</Version>
     <ApplicationIcon>HuaYaoPet.ico</ApplicationIcon>
     <SatelliteResourceLanguages>zh-Hans;en</SatelliteResourceLanguages>
   </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="../Core/HuaYaoPet.Core.csproj" />
+    <EmbeddedResource Include="../../Resources/ThemeLyrics.txt" LogicalName="HuaYaoPet.ThemeLyrics.txt" />
     <Content Include="../../Resources/Pets/*.png" Link="Pets/%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
     <Content Include="HuaYaoPet.ico" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
   </ItemGroup>

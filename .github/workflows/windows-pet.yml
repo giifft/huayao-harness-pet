@@ -7,6 +7,11 @@ on:
       - 'Resources/Pets/**'
       - '.github/workflows/windows-pet.yml'
   workflow_dispatch:
+    inputs:
+      release_tag:
+        description: 'Draft release tag to receive the verified Windows ZIP'
+        type: string
+        required: false
 permissions:
   contents: read
 
@@ -16,6 +21,8 @@ jobs:
     timeout-minutes: 12
     steps:
       - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
       - uses: actions/setup-dotnet@v4
         with:
           dotnet-version: '10.0.x'
@@ -28,7 +35,10 @@ jobs:
         run: |
           $ErrorActionPreference = 'Stop'
           $out = (Resolve-Path "pet-win-x64").Path
-          if ((Get-ChildItem "$out/Pets" -File -Filter "*.png").Count -ne 33) { throw "Expected 33 portraits." }
+          foreach ($group in @(@{ Prefix = 'duo'; Count = 18 }, @{ Prefix = 'hua'; Count = 13 }, @{ Prefix = 'sheng'; Count = 4 })) {
+            $portraits = Get-ChildItem "$out/Pets" -File -Filter "$($group.Prefix)_*.png"
+            if ($portraits.Count -ne $group.Count) { throw "Expected $($group.Count) $($group.Prefix) portraits." }
+          }
           $env:DSH_HOME = Join-Path $env:RUNNER_TEMP "empty-harness-home"
           Add-Type @'
           using System;
@@ -84,3 +94,38 @@ jobs:
           finally {
             if (-not $pet.HasExited) { Stop-Process -Id $pet.Id }
           }
+      - name: Package the verified release build
+        if: inputs.release_tag != ''
+        shell: pwsh
+        run: |
+          Rename-Item pet-win-x64 HuaYaoPet-Windows-x64
+          Compress-Archive -Path HuaYaoPet-Windows-x64 -DestinationPath huayao-desktop-windows-x64.zip
+      - uses: actions/upload-artifact@v4
+        if: inputs.release_tag != ''
+        with:
+          name: windows-release
+          path: huayao-desktop-windows-x64.zip
+          if-no-files-found: error
+          compression-level: 0
+
+  upload:
+    if: inputs.release_tag != '' && github.ref == 'refs/heads/main'
+    needs: smoke
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: windows-release
+      - name: Upload to the matching draft release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          RELEASE_TAG: ${{ inputs.release_tag }}
+        run: |
+          set -euo pipefail
+          [[ "$RELEASE_TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]
+          target=$(gh release view "$RELEASE_TAG" --json isDraft,targetCommitish --jq 'select(.isDraft) | .targetCommitish')
+          [[ "$target" == "$GITHUB_SHA" ]]
+          gh release upload "$RELEASE_TAG" huayao-desktop-windows-x64.zip

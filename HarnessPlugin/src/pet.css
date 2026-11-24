@@ -4,11 +4,19 @@
   --hy-rose: #8c4355;
   --hy-border: #d8beb2;
   --hy-shadow: 0 4px 16px #2e1c211c;
+  --hy-tint: #f9ecde;
+  --hy-active: #f6e2e1;
+  --hy-muted: #68544d;
+  --hy-width: 224px;
+  --hy-stage: 230px;
+  --hy-solo: 155px;
+  --hy-duo: 175px;
+  --hy-stage-size: min(var(--hy-stage), 47vh);
   position: absolute;
   z-index: 2;
   inset-inline-end: clamp(12px, 3vw, 40px);
   bottom: clamp(16px, 5vh, 54px);
-  width: 214px;
+  width: min(var(--hy-width), calc(100vw - 16px));
   color: var(--hy-ink);
   pointer-events: none !important;
   text-align: center;
@@ -31,7 +39,7 @@
 
 .huayao-desktop__stage {
   position: relative;
-  height: min(230px, 46vh);
+  height: var(--hy-stage-size);
   display: grid;
   place-items: end center;
 }
@@ -56,7 +64,7 @@
 
 .huayao-desktop__actions button:hover,
 .huayao-desktop__badge:hover {
-  background: #f7e5df;
+  background: var(--hy-active);
 }
 
 .huayao-desktop__badge {
@@ -70,7 +78,7 @@
 .huayao-desktop__compact-status {
   padding-inline-start: 6px;
   border-inline-start: 1px solid var(--hy-border);
-  color: #68544d;
+  color: var(--hy-muted);
   font-size: 12px;
 }
 
@@ -99,14 +107,14 @@
 
 .huayao-desktop__actor img {
   display: block;
-  height: min(155px, 31vh);
-  max-width: 210px;
+  height: min(var(--hy-solo), 32vh);
+  max-width: 100%;
   object-fit: contain;
   filter: drop-shadow(0 3px 5px #39252a44);
 }
 
 .huayao-desktop__stage[data-mode="duo"] .huayao-desktop__actor img {
-  height: min(175px, 34vh);
+  height: min(var(--hy-duo), 35vh);
 }
 
 .huayao-desktop__actor img[data-hop] {
@@ -152,7 +160,12 @@
   position: absolute;
   right: 0;
   bottom: calc(100% + 8px);
-  width: min(268px, calc(100vw - 24px));
+  z-index: 2;
+  width: min(280px, calc(100vw - 16px));
+  max-height: min(365px, max(100px, calc((100dvh - var(--hy-stage-size) - 55px) * var(--hy-panel-share))));
+  overscroll-behavior: contain;
+  overflow-y: auto;
+  text-align: start;
   padding: 10px;
   box-sizing: border-box;
   border: 1px solid var(--hy-border);
@@ -180,7 +193,7 @@
 .huayao-desktop__tabs span { opacity: .8; }
 .huayao-desktop__tabs button[aria-pressed="true"] {
   border-color: #dbb4b7;
-  background: #f6e2e1;
+  background: var(--hy-active);
 }
 
 .huayao-desktop__poses {
@@ -201,13 +214,13 @@
   gap: 3px;
   border: 1px solid transparent;
   border-radius: 7px;
-  background: #f9ecde;
+  background: var(--hy-tint);
 }
 
 .huayao-desktop__pose:hover,
 .huayao-desktop__pose[aria-pressed="true"] {
   border-color: #aa6372;
-  background: #f6e2e1;
+  background: var(--hy-active);
 }
 .huayao-desktop__pose img { width: 52px; height: 46px; object-fit: contain; }
 .huayao-desktop__pose span { font-size: 11px; }
@@ -250,4 +263,79 @@
   .huayao-desktop__actor img,
   .huayao-desktop__petals i { animation: none !important; }
   .huayao-desktop__petals { display: none; }
+}
+
+/* 跟随 Harness 明暗主题。 */
+body[data-ds-dark-theme] .huayao-desktop {
+  --hy-paper: #322428;
+  --hy-ink: #f3e5d7;
+  --hy-rose: #e997ac;
+  --hy-border: #75565d;
+  --hy-shadow: 0 4px 18px #0006;
+  --hy-tint: #473135;
+  --hy-active: #573842;
+  --hy-muted: #d7bfb4;
+}
+
+.huayao-desktop[data-size="small"] {
+  --hy-width: 198px;
+  --hy-stage: 186px;
+  --hy-solo: 117px;
+  --hy-duo: 133px;
+}
+
+.huayao-desktop[data-size="large"] {
+  --hy-width: 280px;
+  --hy-stage: 282px;
+  --hy-solo: 204px;
+  --hy-duo: 229px;
+}
+
+.huayao-desktop__draggable { touch-action: none; user-select: none; cursor: grab; }
+.huayao-desktop[data-moving] .huayao-desktop__draggable { cursor: grabbing; }
+.huayao-desktop[data-roaming] { transition: left 1.8s ease-in-out, top 1.8s ease-in-out, transform 1.8s ease-in-out; }
+.huayao-desktop__stage[data-state="done"] .huayao-desktop__actor img:not([data-hop]) {
+  animation: huayao-desktop-hop .55s ease;
+}
+
+.huayao-desktop[data-anchor-x="left"] .huayao-desktop__picker { left: 0; right: auto; }
+.huayao-desktop[data-anchor-y="top"] .huayao-desktop__picker { top: calc(100% + 8px); bottom: auto; }
+
+.huayao-desktop__settings,
+.huayao-desktop__companion {
+  display: grid;
+  gap: 9px;
+  font: 13px/1.45 "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
+}
+
+.huayao-desktop__settings p,
+.huayao-desktop__companion p { margin: 0; }
+.huayao-desktop__settings .huayao-desktop__toggle { padding: 0; }
+.huayao-desktop__settings select,
+.huayao-desktop__settings button,
+.huayao-desktop__companion button {
+  background: var(--hy-tint);
+  border: 1px solid var(--hy-border);
+  border-radius: 7px;
+  color: var(--hy-ink);
+  padding: 4px 8px;
+  font: inherit;
+}
+.huayao-desktop__settings button:hover,
+.huayao-desktop__companion button:hover:not(:disabled) { background: var(--hy-active); }
+.huayao-desktop__companion button:disabled { cursor: default; opacity: .66; }
+.huayao-desktop__quick { display: flex; align-items: center; flex-wrap: wrap; gap: 5px; }
+.huayao-desktop__bond { display: grid; padding: 8px; background: var(--hy-tint); border-radius: 8px; }
+.huayao-desktop__bond strong { color: var(--hy-rose); }
+.huayao-desktop__bond span,
+.huayao-desktop__tasks { color: var(--hy-muted); }
+.huayao-desktop__companion summary { cursor: pointer; padding: 4px 0; }
+.huayao-desktop__companion ul { list-style: none; padding: 0; margin: 3px 0; }
+.huayao-desktop__companion li { display: flex; justify-content: space-between; gap: 8px; }
+.huayao-desktop__companion li span:last-child { color: var(--hy-muted); }
+.huayao-desktop__quiz { display: grid; gap: 7px; }
+.huayao-desktop__quiz img { width: 100%; height: 84px; object-fit: contain; }
+
+@media (prefers-reduced-motion: reduce) {
+  .huayao-desktop[data-roaming] { transition: none; }
 }

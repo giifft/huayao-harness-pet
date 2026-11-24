@@ -25,7 +25,12 @@ export const labels = {
   cancelled: '已中止',
 }
 
-const emptyActivity = Object.freeze({ tool: '', terminal: null })
+const emptyActivity = Object.freeze({ tool: '', intent: '', terminal: null })
+const toolIntent = {
+  read: 'reading', read_file: 'reading', glob: 'reading', grep: 'reading',
+  write: 'writing', write_file: 'writing', edit: 'writing', edit_file: 'writing',
+  web_search: 'searching', web_fetch: 'searching',
+}
 const settleTime = 14000
 
 export const emptySource = {
@@ -34,7 +39,7 @@ export const emptySource = {
 }
 
 export function selectMainSession({ byId }) {
-  return Object.values(byId).find(session => (session.retainedBy.mainView ?? 0) > 0)?.id
+  return Object.values(byId).find(session => (session.retainedBy?.mainView ?? 0) > 0)?.id
 }
 
 export function createActivitySource(eventSource) {
@@ -47,7 +52,7 @@ export function createActivitySource(eventSource) {
 
   function reduce({ event, type }) {
     if (type !== 'event') return
-    const { data } = event
+    const data = event.data ?? {}
     switch (event.type) {
       case 'turn/start':
         tools.clear()
@@ -56,7 +61,10 @@ export function createActivitySource(eventSource) {
       case 'tool/call':
         if (data.callId) {
           const key = typeof data.name === 'string' ? data.name.toLowerCase() : ''
-          tools.set(data.callId, Object.hasOwn(toolLabels, key) ? toolLabels[key] : '在调用工具')
+          tools.set(data.callId, {
+            label: Object.hasOwn(toolLabels, key) ? toolLabels[key] : '在调用工具',
+            intent: Object.hasOwn(toolIntent, key) ? toolIntent[key] : '',
+          })
         }
         break
       case 'tool/result':
@@ -66,7 +74,7 @@ export function createActivitySource(eventSource) {
         tools.clear()
         const kind = data.reason?.kind
         const state = kind === 'error' ? 'error' : ['aborted', 'cancelled'].includes(kind) ? 'cancelled' : 'done'
-        terminal = { state, time: event.time }
+        terminal = { state, time: event.time, sequence: event.seq }
         break
       }
     }
@@ -84,9 +92,11 @@ export function createActivitySource(eventSource) {
       }
       revision = window.revision
     }
-    const tool = Array.from(tools.values()).at(-1) ?? ''
+    const call = Array.from(tools.values()).at(-1)
+    const tool = call?.label ?? ''
+    const intent = call?.intent ?? ''
     const recent = terminal && Date.now() - terminal.time < settleTime ? terminal : null
-    if (tool !== snapshot.tool || recent !== snapshot.terminal) snapshot = { tool, terminal: recent }
+    if (tool !== snapshot.tool || intent !== snapshot.intent || recent !== snapshot.terminal) snapshot = { tool, intent, terminal: recent }
     return snapshot
   }
 

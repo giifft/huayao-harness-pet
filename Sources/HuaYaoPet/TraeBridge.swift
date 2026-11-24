@@ -25,6 +25,8 @@ final class TraeBridge {
     private var configured = false
 
     private var helper: URL { bridge.appendingPathComponent("huayao-trae-hook") }
+    private var enabledMarker: URL { bridge.appendingPathComponent(".trae-enabled") }
+    var isEnabled: Bool { fm.fileExists(atPath: enabledMarker.path) }
     private var events: URL { bridge.appendingPathComponent("TRAE", isDirectory: true) }
     private var command: String {
         "'" + helper.path.replacingOccurrences(of: "'", with: "'\\''") + "' --trae-hook"
@@ -70,11 +72,66 @@ final class TraeBridge {
         try fm.createDirectory(at: bridge, withIntermediateDirectories: true,
                                attributes: [.posixPermissions: 0o700])
         try fm.createDirectory(at: config.deletingLastPathComponent(), withIntermediateDirectories: true)
+        try writeHelper(executable)
+        try writeConfig(document)
+    }
+
+    private func writeConfig(_ document: [String: Any]) throws {
+        let data = try JSONSerialization.data(withJSONObject: document, options: [.prettyPrinted, .sortedKeys])
+        try data.write(to: config, options: .atomic)
+    }
+
+    private func writeHelper(_ executable: URL) throws {
         let binary = try Data(contentsOf: executable)
         try binary.write(to: helper, options: .atomic)
         try fm.setAttributes([.posixPermissions: 0o700], ofItemAtPath: helper.path)
-        let data = try JSONSerialization.data(withJSONObject: document, options: [.prettyPrinted, .sortedKeys])
-        try data.write(to: config, options: .atomic)
+    }
+
+    func updateInstalledHelper(from executable: URL) throws {
+        guard fm.fileExists(atPath: helper.path) else { return }
+        let hooks = try readConfig()["hooks"] as? [String: Any] ?? [:]
+        guard Hook.allCases.contains(where: { hook in
+            (hooks[hook.rawValue] as? [[String: Any]])?.contains(where: containsBridge) == true
+        }) else { return }
+        let current = try Data(contentsOf: executable)
+        if !fm.isExecutableFile(atPath: helper.path) || (try? Data(contentsOf: helper)) != current {
+            try writeHelper(executable)
+        }
+    }
+
+    func setEnabled(_ enabled: Bool) throws {
+        if enabled && fm.isExecutableFile(atPath: helper.path) {
+            if !isEnabled { try Data().write(to: enabledMarker, options: .atomic) }
+        } else if isEnabled {
+            try fm.removeItem(at: enabledMarker)
+        }
+    }
+
+    func uninstall() throws {
+        try setEnabled(false)
+        var document = try readConfig()
+        if var hooks = document["hooks"] as? [String: Any] {
+            var changed = false
+            for hook in Hook.allCases {
+                let key = hook.rawValue
+                guard let groups = hooks[key] as? [[String: Any]], groups.contains(where: containsBridge) else { continue }
+                let remainingGroups = groups.compactMap { group -> [String: Any]? in
+                    guard let commands = group["hooks"] as? [[String: Any]], containsBridge(group) else { return group }
+                    let remainingCommands = commands.filter { $0["command"] as? String != command }
+                    guard !remainingCommands.isEmpty else { return nil }
+                    var updated = group
+                    updated["hooks"] = remainingCommands
+                    return updated
+                }
+                hooks[key] = remainingGroups.isEmpty ? nil : remainingGroups
+                changed = true
+            }
+            if changed {
+                document["hooks"] = hooks
+                try writeConfig(document)
+            }
+        }
+        if fm.fileExists(atPath: helper.path) { try fm.removeItem(at: helper) }
     }
 
     func refresh(now: Date = Date()) -> AgentStatus {
@@ -132,6 +189,7 @@ final class TraeBridge {
         defer { close(lock) }
         guard flock(lock, LOCK_EX) == 0 else { throw CocoaError(.fileWriteUnknown) }
         defer { flock(lock, LOCK_UN) }
+        guard isEnabled else { return }
         let key = SHA256.hash(data: Data(session.utf8)).map { String(format: "%02x", $0) }.joined()
         let file = events.appendingPathComponent(key).appendingPathExtension("json")
         let previous = (try? Data(contentsOf: file)).flatMap { try? JSONDecoder().decode(Signal.self, from: $0) }

@@ -20,7 +20,7 @@ internal sealed class PetWindow : Window
     private sealed record Mode(string Id, string Name, string Default, string[] Titles);
     private static readonly Mode[] Modes =
     [
-        new("duo", "双人", "D09", ["依怀小憩","相依倚榻","抚颊对望","并肩低语","双人相拥","背靠相携","倚肩相依","相拥斜卧","执手对望","携手回眸","背向相守","近身凝望","相拥入梦","双人卧花","倚榻双眠","垂眸相依"]),
+        new("duo", "双人", "D09", ["依怀小憩","相依倚榻","抚颊对望","并肩低语","双人相拥","背靠相携","倚肩相依","相拥斜卧","执手对望","携手回眸","背向相守","近身凝望","相拥入梦","双人卧花","倚榻双眠","垂眸相依","红袖偷笑","袖里藏花"]),
         new("hua", "花旦单人", "H08", ["侧身坐姿","托腮正面","掩袖回望","展袖舒身","闭目手势","斜卧长袖","抬袖仰望","正面全身","坐姿飞袖","坐姿花枝","纱罩捧灯","侧身回眸","花间舞袖"]),
         new("sheng", "小生单人", "S03", ["青衣回眸","青衣倚坐","红衣敛袖","红衣执扇"]),
     ];
@@ -47,11 +47,13 @@ internal sealed class PetWindow : Window
     private readonly Forms.NotifyIcon tray;
     private readonly System.Drawing.Icon trayIcon;
     private readonly Dictionary<string, BitmapImage> thumbnails = new();
+    private static readonly string[] ThemeLyrics = LoadThemeLyrics();
     private HarnessReader? reader;
     private PetStatus current = new(PetPhase.Offline, "暂无会话");
     private bool reading;
     private Point? pressAt;
     private bool closing;
+    private string? pendingThemeLine;
 
     private Mode ActiveMode => Modes.FirstOrDefault(mode => mode.Id == prefs.Mode) ?? Modes[0];
 
@@ -112,8 +114,17 @@ internal sealed class PetWindow : Window
         tray.ContextMenuStrip = trayMenu;
         tray.MouseClick += (_, args) => { if (args.Button == Forms.MouseButtons.Left) Dispatcher.Invoke(ShowPet); };
 
-        speechTimer.Tick += (_, _) => { speechTimer.Stop(); speechPaper.Visibility = Visibility.Collapsed; };
-        idleTimer.Tick += (_, _) => { if (prefs.AutoChat && IsVisible && !current.Busy) SaySomething(false); };
+        speechTimer.Tick += (_, _) =>
+        {
+            speechTimer.Stop();
+            var next = pendingThemeLine;
+            pendingThemeLine = null;
+            if (next != null && prefs.AutoChat && IsVisible && !current.Busy)
+                Say(next);
+            else
+                speechPaper.Visibility = Visibility.Collapsed;
+        };
+        idleTimer.Tick += (_, _) => { if (prefs.AutoChat && IsVisible && !current.Busy) SayIdleLine(); };
         scanTimer.Tick += async (_, _) => await Scan();
         Loaded += (_, _) =>
         {
@@ -145,6 +156,7 @@ internal sealed class PetWindow : Window
         {
             var entry = Add(menu, mode.Name, () =>
             {
+                pendingThemeLine = null;
                 prefs.Mode = mode.Id;
                 SetPose();
                 prefs.Save();
@@ -327,8 +339,36 @@ internal sealed class PetWindow : Window
         }
     }
 
+    private void SayIdleLine()
+    {
+        if (ThemeLyrics.Length < 2 || Random.Shared.Next(4) != 0)
+        {
+            SaySomething(false);
+            return;
+        }
+        if (ActiveMode.Id == "duo")
+        {
+            var couplet = Random.Shared.Next(ThemeLyrics.Length / 2) * 2;
+            Say($"花旦 · {ThemeLyrics[couplet]}");
+            pendingThemeLine = $"小生 · {ThemeLyrics[couplet + 1]}";
+        }
+        else
+        {
+            Say(ThemeLyrics[Random.Shared.Next(ThemeLyrics.Length)]);
+        }
+    }
+
+    private static string[] LoadThemeLyrics()
+    {
+        using var resource = typeof(PetWindow).Assembly.GetManifestResourceStream("HuaYaoPet.ThemeLyrics.txt");
+        if (resource == null) return [];
+        using var reader = new StreamReader(resource);
+        return reader.ReadToEnd().Split(['\r', '\n'], StringSplitOptions.RemoveEmptyEntries);
+    }
+
     private void Say(string line)
     {
+        pendingThemeLine = null;
         speech.Text = line;
         speechPaper.Visibility = Visibility.Visible;
         speechTimer.Stop();
@@ -383,6 +423,7 @@ internal sealed class PetWindow : Window
     {
         var previous = current;
         current = status;
+        if (status.Busy) pendingThemeLine = null;
         statusLabel.Text = status.Label;
         statusDot.Fill = Paint(status.Phase switch
         {

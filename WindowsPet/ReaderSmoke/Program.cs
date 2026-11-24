@@ -57,6 +57,12 @@ try
     File.WriteAllText(main, "invalid frame");
     File.SetLastWriteTimeUtc(main, now.UtcDateTime.AddSeconds(4));
     Check(PetPhase.Waiting, "Partial replacement keeps prior status");
+    using (var file = File.Create(main))
+    using (var compressed = new CompressionStream(file))
+    using (var writer = new StreamWriter(compressed))
+        writer.WriteLine();
+    File.SetLastWriteTimeUtc(main, now.UtcDateTime.AddSeconds(4.5));
+    Check(PetPhase.Waiting, "Empty session keeps prior status");
     Add("approval/decided", new { id = "ask" });
     Add("turn/end", new { reason = new { kind = "completed" } });
     Write(main, newerBy: 5);

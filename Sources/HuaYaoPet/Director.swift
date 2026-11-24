@@ -23,6 +23,16 @@ enum Speaker {
 // MARK: - 台词库
 
 enum Script {
+    static let themeLyrics: [String] = {
+        guard let url = Bundle.main.url(forResource: "ThemeLyrics", withExtension: "txt"),
+              let text = try? String(contentsOf: url, encoding: .utf8) else { return [] }
+        return text.split(whereSeparator: \.isNewline).map(String.init)
+    }()
+
+    static func idleLines(for speaker: Speaker) -> [String] {
+        (idleSolo[speaker] ?? []) + themeLyrics
+    }
+
     /// 双人小剧场：两人一来一往
     static let idleDuos: [[Line]] = [
         [Line(speaker: .hua, text: "你看那水袖，风一吹就开了。"),
@@ -49,7 +59,10 @@ enum Script {
          Line(speaker: .hua, text: "正好，雨声比锣鼓更像心事。")],
         [Line(speaker: .hua, text: "这身红衣，是借来的。"),
          Line(speaker: .sheng, text: "衣裳是借的，站在这儿的人不是。")],
-    ]
+    ] + stride(from: 0, to: max(0, themeLyrics.count - 1), by: 2).map { index in
+        [Line(speaker: .hua, text: themeLyrics[index]),
+         Line(speaker: .sheng, text: themeLyrics[index + 1])]
+    }
 
     /// 单人闲话
     static let idleSolo: [Speaker: [String]] = [
@@ -324,7 +337,7 @@ final class Director {
             // 单人：自言自语，气泡居中
             let who: Speaker = mode == .hua ? .hua : .sheng
             let solo = who == .hua ? Script.soloHua : Script.soloSheng
-            let pool = Bool.random() ? solo : (Script.idleSolo[who] ?? [])
+            let pool = Bool.random() ? solo : Script.idleLines(for: who)
             enqueue([Line(speaker: who, text: pool.randomElement() ?? "……")])
 
         case .duo:
@@ -333,7 +346,7 @@ final class Director {
                 enqueue(Script.idleDuos.randomElement() ?? [])
             } else {
                 let who: Speaker = Bool.random() ? .hua : .sheng
-                let pool = Script.idleSolo[who] ?? []
+                let pool = Script.idleLines(for: who)
                 enqueue([Line(speaker: who, text: pool.randomElement() ?? "……")])
             }
         }

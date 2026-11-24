@@ -77,37 +77,68 @@ final class DSHSessionReader {
                 }
                 return offline("会话暂时无法读取")
             }
-            let records = decoded.split(separator: 0x0A).compactMap {
-                (try? JSONSerialization.jsonObject(with: Data($0))) as? [String: Any]
-            }
-            guard let header = records.first, header["type"] as? String == "session" else {
-                return offline("无法识别会话格式")
+            let maxRecords = 50_000
+            let lines = decoded.split(separator: 0x0A, maxSplits: maxRecords)
+            guard lines.count <= maxRecords, let first = lines.first,
+                  let header = Self.record(first), header["type"] as? String == "session" else {
+                return currentFile == nil ? offline("无法识别会话格式") : displayStatus(at: now)
             }
             if (header["delegationDepth"] as? Int ?? 0) > 0 || header["parentSession"] != nil && !(header["parentSession"] is NSNull) {
                 delegatedFiles.insert(file.url)
                 continue
             }
-            let events = records.dropFirst().compactMap(Event.init)
-            let cursor = currentFile?.url == file.url
-                ? lastEvent.flatMap { marker in events.lastIndex(where: { $0.matches(marker) }) }
-                : nil
+            let deadline = ProcessInfo.processInfo.systemUptime + 5
+            var cursor: Int?
+            if currentFile?.url == file.url, let marker = lastEvent {
+                for index in lines.indices.dropFirst().reversed() {
+                    guard ProcessInfo.processInfo.systemUptime < deadline else { return displayStatus(at: now) }
+                    if autoreleasepool(invoking: { Self.event(lines[index])?.matches(marker) == true }) {
+                        cursor = index
+                        break
+                    }
+                }
+            }
+
+            let previousState = status
+            let previousTools = toolCalls
+            let previousApprovals = approvals
             let replay = currentFile?.url != file.url || (lastEvent != nil && cursor == nil)
             if replay {
                 reset()
                 status.state = .idle
             }
-            let firstNew = cursor.map { $0 + 1 } ?? 0
-            for event in events.dropFirst(firstNew) { reduce(event) }
+            var newest = replay ? nil : lastEvent
+            for line in lines.dropFirst((cursor ?? 0) + 1) {
+                guard ProcessInfo.processInfo.systemUptime < deadline else {
+                    status = previousState
+                    toolCalls = previousTools
+                    approvals = previousApprovals
+                    return currentFile == nil ? offline("会话读取超时") : displayStatus(at: now)
+                }
+                autoreleasepool {
+                    guard let event = Self.event(line) else { return }
+                    reduce(event)
+                    newest = (event.sequence, event.time, event.type)
+                }
+            }
             // Historical completion and error states should not replay at startup or on session switch.
             if replay, !status.state.isBusy { status.state = .idle }
             currentFile = file
-            lastEvent = events.last.map { ($0.sequence, $0.time, $0.type) }
+            lastEvent = newest
             return displayStatus(at: now)
         }
         reset()
         currentFile = nil
         lastEvent = nil
         return offline("暂无会话")
+    }
+
+    private static func record(_ line: Data) -> [String: Any]? {
+        (try? JSONSerialization.jsonObject(with: line)) as? [String: Any]
+    }
+
+    private static func event(_ line: Data) -> Event? {
+        record(line).flatMap(Event.init)
     }
 
     private func directories(in url: URL) -> [URL] {
@@ -198,21 +229,33 @@ final class DSHSessionReader {
     private static func decompress(_ url: URL) -> Data? {
         let process = Process()
         let bundled = Bundle.main.bundleURL.appendingPathComponent("Contents/Helpers/dsh-unzstd")
-        if FileManager.default.isExecutableFile(atPath: bundled.path) {
-            process.executableURL = bundled
-            process.arguments = [url.path]
-        } else {
-            let paths = ["/opt/homebrew/bin/zstd", "/usr/local/bin/zstd"]
-            let executable = paths.first(where: FileManager.default.isExecutableFile(atPath:))
-            process.executableURL = URL(fileURLWithPath: executable ?? "/usr/bin/env")
-            process.arguments = (executable == nil ? ["zstd"] : []) + ["-dc", "--", url.path]
-        }
+        guard FileManager.default.isExecutableFile(atPath: bundled.path) else { return nil }
+        process.executableURL = bundled
+        process.arguments = [url.path]
         let output = Pipe()
         process.standardOutput = output
         process.standardError = FileHandle.nullDevice
         do {
             try process.run()
-            let data = output.fileHandleForReading.readDataToEndOfFile()
+            let maxBytes = 32 * 1024 * 1024
+            var data = Data()
+            let handle = output.fileHandleForReading
+            do {
+                while let chunk = try handle.read(upToCount: 64 * 1024), !chunk.isEmpty {
+                    guard chunk.count <= maxBytes - data.count else {
+                        if process.isRunning { process.terminate() }
+                        try? handle.close()
+                        process.waitUntilExit()
+                        return nil
+                    }
+                    data.append(chunk)
+                }
+            } catch {
+                if process.isRunning { process.terminate() }
+                try? handle.close()
+                process.waitUntilExit()
+                return nil
+            }
             process.waitUntilExit()
             return process.terminationStatus == 0 ? data : nil
         } catch {

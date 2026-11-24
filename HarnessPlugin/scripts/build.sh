@@ -12,7 +12,7 @@ if [ -n "${ESBUILD_BIN:-}" ]; then
   esbuild=("$ESBUILD_BIN")
 fi
 "${esbuild[@]}" src/client.jsx --bundle --format=cjs --platform=browser \
-  --target=chrome132 --jsx=automatic --external:react --loader:.css=text \
+  --target=chrome132 --jsx=automatic --external:react --loader:.css=text --loader:.txt=text \
   --banner:js='window.__ModuleLoader__.load({id:"huayao-harness-pet",factory:require=>{const module={exports:{}};' \
   --footer:js='return module.exports}});' \
   --outfile=lib/client.js

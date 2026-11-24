@@ -1,5 +1,5 @@
 <div align="center">
-  <img src="Resources/Pets/duo_D09.png" width="190" alt="花妖桌宠双人合照，执手对望">
+  <img src="Resources/Pets/duo_D09.png" width="190" alt="花妖桌宠 Q 版双人立绘，执手对望">
   <h1>花妖桌宠 · Hua Yao Pet</h1>
   <p>把越剧《花妖》的花旦和小生请到桌面。点一下，会轻轻跳一下，回你一句戏台上的话。</p>
 </div>
@@ -7,9 +7,9 @@
 <p align="center">
   <a href="LICENSE"><img alt="代码许可 MIT" src="https://img.shields.io/badge/Code%20License-MIT-yellow"></a>
   <a href="NOTICE-ARTWORK.zh-CN.txt"><img alt="立绘不对外授权，禁止商用" src="https://img.shields.io/badge/Artwork-Promotion%20Only-8c4355"></a>
-  <a href="https://github.com/giifft/huayao-harness-pet/releases/tag/desktop-v1.2.0"><img alt="macOS 独立版 v1.2.0" src="https://img.shields.io/badge/macOS-v1.2.0-446d62"></a>
-  <a href="https://github.com/giifft/huayao-harness-pet/releases/tag/desktop-v1.2.0"><img alt="Windows 独立版 v1.0.0" src="https://img.shields.io/badge/Windows-v1.0.0-3575ad"></a>
-  <a href="https://github.com/giifft/huayao-harness-pet/releases/tag/v1.0.0"><img alt="Harness 插件 v1.0.0" src="https://img.shields.io/badge/Harness%20Plugin-v1.0.0-8c4355"></a>
+  <a href="https://github.com/giifft/huayao-harness-pet/releases/tag/v1.2.2"><img alt="macOS 独立版 v1.2.2" src="https://img.shields.io/badge/macOS-v1.2.2-446d62"></a>
+  <a href="https://github.com/giifft/huayao-harness-pet/releases/tag/v1.2.2"><img alt="Windows 独立版 v1.0.2" src="https://img.shields.io/badge/Windows-v1.0.2-3575ad"></a>
+  <a href="https://github.com/giifft/huayao-harness-pet/releases/tag/v1.2.2"><img alt="Harness 插件 v1.1.1" src="https://img.shields.io/badge/Harness%20Plugin-v1.1.1-8c4355"></a>
   <a href="https://github.com/giifft/huayao-harness-pet/actions/workflows/windows-pet.yml"><img alt="Windows 自动启动测试" src="https://github.com/giifft/huayao-harness-pet/actions/workflows/windows-pet.yml/badge.svg?branch=main"></a>
 </p>
 
@@ -24,32 +24,25 @@
 
 ## 桌宠预览
 
-<table>
-  <tr>
-    <td align="center"><strong>macOS 独立桌宠</strong></td>
-    <td align="center" colspan="2"><strong>DeepSeek Harness 插件</strong></td>
-  </tr>
-  <tr>
-    <td align="center"><img src="docs/screenshots/macos-desktop.png" width="188" alt="双人合照、花旦台词气泡与 Codex 思考中状态"></td>
-    <td align="center"><img src="docs/screenshots/harness-pet.png" width="184" alt="Harness 窗口中的花妖双人立绘和空闲状态"></td>
-    <td align="center"><img src="docs/screenshots/harness-portraits.png" width="219" alt="Harness 插件中的立绘缩略图选择面板"></td>
-  </tr>
-  <tr>
-    <td align="center">桌面上的双人合照与台词</td>
-    <td align="center">Harness 窗口右下角的花妖</td>
-    <td align="center">双人、花旦、小生换装</td>
-  </tr>
-</table>
+<p align="center">
+  <img src="docs/screenshots/macos-desktop.png" width="235" alt="macOS 花妖桌宠，Q 版执手对望">
+</p>
+
+### 双人 Q 版输入法设计预览
+
+「红袖偷笑」与「袖里藏花」的角色也可在桌宠双人模式选用。下图展示两款皮肤的九键与桌面候选窗设计。
+
+<img src="docs/screenshots/ime-duo-preview.png" width="710" alt="红袖偷笑与袖里藏花的双人 Q 版输入法皮肤设计">
 
 ## 桌宠能做什么
 
 | 玩法 | 说明 |
 | --- | --- |
-| **三种角色模式** | 双人模式使用 16 张双人合照，花旦有 13 款单人立绘，小生有 4 款。可以按缩略图挑选，三个模式各自记住上次使用的造型。 |
+| **三种角色模式** | 双人模式使用 18 款双人、13 款花旦和 4 款小生 Q 版立绘。可以按缩略图挑选，三个模式各自记住上次使用的造型。 |
 | **点击回话与花瓣** | 点人物会轻跳并弹出台词。花瓣可以关闭，独立版还可开关自动闲聊。 |
 | **摆放桌面** | 独立版可以拖动、缩放、置顶或移到右下角。Windows 可用任务栏通知区域的图标显示、隐藏和退出桌宠。 |
 | **AI 状态提醒** | 支持显示思考、调用工具、待确认、完成等状态。需要确认时，在对应 AI 应用里处理。 |
-| **Harness 窗口内玩法** | 从 Harness 的插件页安装和停用，跟随当前会话。点「收起」可缩成状态按钮，点「花妖」展开。 |
+| **Harness 窗口内玩法** | 从 Harness 的插件页安装和停用，跟随当前会话。还支持拖动记位、状态换姿、花台陪伴和本地存档。 |
 
 ### 三个版本怎么选
 
@@ -59,21 +52,21 @@
 | **Windows 独立版** | 系统桌面 | DeepSeek Harness。安装包内置解压组件与运行库。 |
 | **DeepSeek Harness 插件** | Harness 窗口右下角 | 当前 Harness 会话。同一个插件包面向 macOS 和 Windows。 |
 
+常规联动默认开启。macOS 就地读取 Codex 和 Harness 的会话日志、查询 WorkBuddy 本地任务状态。Windows 就地读取 Harness 会话日志。桌宠从日志提取状态与工具类别，可在联动菜单按平台关闭。TRAE 需要先配置 Hooks。关闭 TRAE 联动或退出桌宠会停止接收状态，删除桌宠前可在「AI 联动 → 移除 TRAE 联动」清理桌宠添加的 Hooks 和辅助程序。
+
 ## 下载与安装
 
 | 版本 | 系统或应用要求 | 下载 |
 | --- | --- | --- |
-| **Windows 独立版 v1.0.0** | Windows 10 22H2 或 Windows 11，x64 | [Windows ZIP](https://github.com/giifft/huayao-harness-pet/releases/download/desktop-v1.2.0/huayao-desktop-windows-x64.zip) |
-| **macOS 独立版 v1.2.0** | Apple 芯片，macOS 13 或更新 | [macOS ZIP](https://github.com/giifft/huayao-harness-pet/releases/download/desktop-v1.2.0/huayao-desktop-macos-arm64.zip) |
-| **Harness 插件 v1.0.0** | 支持安装第三方插件的 DeepSeek Harness | [插件 TGZ](https://github.com/giifft/huayao-harness-pet/releases/download/v1.0.0/huayao-harness-pet-1.0.0.tgz) |
+| **Windows 独立版 v1.0.2** | Windows 10 22H2 或 Windows 11，x64 | [Windows ZIP](https://github.com/giifft/huayao-harness-pet/releases/download/v1.2.2/huayao-desktop-windows-x64.zip) |
+| **macOS 独立版 v1.2.2** | Apple 芯片，macOS 13 或更新 | [macOS ZIP](https://github.com/giifft/huayao-harness-pet/releases/download/v1.2.2/huayao-desktop-macos-arm64.zip) |
+| **Harness 插件 v1.1.1** | 支持安装第三方插件的 DeepSeek Harness | [插件 TGZ](https://github.com/giifft/huayao-harness-pet/releases/download/v1.2.2/huayao-harness-pet-1.1.1.tgz) |
 
 1. **Windows**　完整解压 ZIP，打开 `HuaYaoPet-Windows-x64` 文件夹并双击 `HuaYaoPet.exe`。把 EXE 和同目录的文件一并保留。
 2. **macOS**　解压 ZIP，把「花妖桌宠.app」拖到「应用程序」后打开。顶部菜单栏的戏曲面具图标可以打开菜单。
 3. **Harness 插件**　在 Harness 左侧打开「插件 → 添加插件」，粘贴 `.tgz` 的完整本地路径。安装后点「立即启用」，再回到聊天页。
 
-[独立版安装与功能 PDF](https://github.com/giifft/huayao-harness-pet/releases/download/desktop-v1.2.0/huayao-desktop-install-guide-zh-CN.pdf) · [Harness 插件安装与功能 PDF](https://github.com/giifft/huayao-harness-pet/releases/download/v1.0.0/huayao-harness-install-guide-zh-CN.pdf)
-
-Windows 独立版已通过 Windows 运行器的窗口启动与 Harness 会话读取测试。Harness 插件在 Mac 上用 0.2.2-rc.5 的隔离环境验证了安装、启用和交互，Windows 桌面客户端仍待实机验证。Windows 独立安装包未做数字签名，macOS 包未做 Apple 公证。[Windows 自动测试记录](https://github.com/giifft/huayao-harness-pet/actions/runs/45171844566)
+Windows 安装包为自包含构建，未做数字签名。macOS 安装包适用于 Apple 芯片，未做 Apple 公证。Harness 插件支持可安装第三方插件的 0.2.2 系列桌面版。
 
 ## 关于越剧《花妖》
 
@@ -113,8 +106,9 @@ Windows 独立版已通过 Windows 运行器的窗口启动与 Harness 会话读
 | Windows 独立版（.NET／WPF） | [WindowsPet](WindowsPet/README.md) | `dotnet publish WindowsPet/Desktop -c Release -r win-x64 --self-contained true` |
 | Harness 插件（React／Cordis） | [HarnessPlugin](HarnessPlugin/README.md) | `bash HarnessPlugin/scripts/build.sh` |
 
-- [独立版 Release](https://github.com/giifft/huayao-harness-pet/releases/tag/desktop-v1.2.0)　macOS v1.2.0 和 Windows v1.0.0。
-- [Harness 插件 Release](https://github.com/giifft/huayao-harness-pet/releases/tag/v1.0.0)　Harness 窗口内的花妖桌宠 v1.0.0。
+macOS 版支持豆包桌面端联动，覆盖当前窗口里的普通对话。豆包联动默认关闭。在花妖桌宠菜单单独开启「AI 联动 → 豆包」，并在 macOS「系统设置 → 隐私与安全性 → 辅助功能」为花妖桌宠授权。桌宠仅在豆包位于前台时读取普通对话的可访问文本。回复连续更新时，桌宠会提示正在回话，停止更新约 7 秒后回到空闲。聊天文本仅在本地内存中用于比对变化。短回复可能在轮询间隔内结束，因此可能跳过正在回话的提示。
+
+[当前版本 Release](https://github.com/giifft/huayao-harness-pet/releases/tag/v1.2.2) 提供 macOS v1.2.2、Windows v1.0.2 和 Harness 插件 v1.1.1。
 
 ## 代码许可与立绘使用
 

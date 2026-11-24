@@ -46,6 +46,7 @@ codesign --sign - "$CONTENTS/Helpers/dsh-unzstd"
 
 echo "==> 拷贝素材"
 cp -R "$ROOT/Resources/Pets" "$RES/Pets"
+cp "$ROOT/Resources/ThemeLyrics.txt" "$RES/"
 
 echo "==> 写 Info.plist"
 cat > "$CONTENTS/Info.plist" <<'PLIST'
@@ -56,8 +57,8 @@ cat > "$CONTENTS/Info.plist" <<'PLIST'
   <key>CFBundleName</key>              <string>花妖桌宠</string>
   <key>CFBundleDisplayName</key>       <string>花妖桌宠</string>
   <key>CFBundleIdentifier</key>        <string>local.huayao.desktoppet</string>
-  <key>CFBundleVersion</key>           <string>1.2.0</string>
-  <key>CFBundleShortVersionString</key><string>1.2.0</string>
+  <key>CFBundleVersion</key>           <string>1.2.2</string>
+  <key>CFBundleShortVersionString</key><string>1.2.2</string>
   <key>CFBundleExecutable</key>        <string>HuaYaoPet</string>
   <key>CFBundlePackageType</key>       <string>APPL</string>
   <key>LSMinimumSystemVersion</key>    <string>13.0</string>

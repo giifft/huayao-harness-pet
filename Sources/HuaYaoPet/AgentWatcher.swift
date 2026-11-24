@@ -45,7 +45,7 @@ struct AgentStatus: Equatable {
 }
 
 enum AgentPlatform: String, CaseIterable {
-    case codex, harness, workBuddy, trae
+    case codex, harness, workBuddy, trae, doubao
 
     var name: String {
         switch self {
@@ -53,6 +53,7 @@ enum AgentPlatform: String, CaseIterable {
         case .harness: return "DeepSeek Harness"
         case .workBuddy: return "WorkBuddy"
         case .trae: return "TRAE"
+        case .doubao: return "豆包"
         }
     }
 
@@ -177,6 +178,9 @@ final class AgentWatcher {
             return Reader { reader.refresh() }
         case .trae:
             let reader = TraeBridge(home: home)
+            return Reader { reader.refresh() }
+        case .doubao:
+            let reader = DoubaoReader()
             return Reader { reader.refresh() }
         }
     }

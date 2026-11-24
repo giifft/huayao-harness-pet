@@ -105,13 +105,18 @@ enum Prefs {
         set { d.set(newValue, forKey: "autoChat") }
     }
 
+    static var standardLinkedPlatforms: Set<AgentPlatform> {
+        Set(AgentPlatform.allCases).subtracting([.doubao])
+    }
+
     static var linkedPlatforms: Set<AgentPlatform> {
         get {
             if let values = d.stringArray(forKey: "linkedPlatforms") {
                 return Set(values.compactMap(AgentPlatform.init(rawValue:)))
             }
             // Carry forward the old Harness switch, including the standalone mode.
-            return (d.object(forKey: "dshLink") as? Bool ?? true) ? Set(AgentPlatform.allCases) : []
+            return (d.object(forKey: "dshLink") as? Bool ?? true)
+                ? standardLinkedPlatforms : []
         }
         set { d.set(AgentPlatform.allCases.filter(newValue.contains).map(\.rawValue), forKey: "linkedPlatforms") }
     }

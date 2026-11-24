@@ -1,5 +1,8 @@
+using System.Diagnostics;
+using System.Text;
 using System.Text.Json;
 using ZstdSharp;
+using ZstdSharp.Unsafe;
 
 namespace HuaYaoPet;
 
@@ -27,6 +30,50 @@ public sealed class HarnessReader(string root)
 {
     private record Stamp(string Path, DateTime Modified, DateTime Created, long Bytes);
     private record Cursor(long Seq, long Time, string Type);
+
+    private const long MaxCompressedBytes = 64 * 1024 * 1024;
+
+    private sealed class SessionLines(StreamReader reader)
+    {
+        private const int MaxCharacters = 32 * 1024 * 1024;
+        private const int MaxLineCharacters = 2 * 1024 * 1024;
+        private readonly char[] buffer = new char[8192];
+        private readonly Stopwatch elapsed = Stopwatch.StartNew();
+        private int index, length, total;
+
+        public string? ReadLine()
+        {
+            var line = new StringBuilder();
+            while (true)
+            {
+                if (elapsed.ElapsedMilliseconds >= 5000)
+                    throw new InvalidDataException("Session read timed out.");
+                if (index == length)
+                {
+                    index = 0;
+                    length = reader.Read(buffer);
+                    total += length;
+                    if (total > MaxCharacters)
+                        throw new InvalidDataException("Session exceeds the decoded size limit.");
+                    if (length == 0) return line.Length == 0 ? null : line.ToString();
+                }
+
+                var remaining = buffer.AsSpan(index, length - index);
+                int newline = remaining.IndexOf('\n');
+                int count = newline < 0 ? remaining.Length : newline;
+                if (line.Length + count > MaxLineCharacters)
+                    throw new InvalidDataException("Session record exceeds the line length limit.");
+                line.Append(remaining[..count]);
+                index += count;
+                if (newline >= 0)
+                {
+                    index++;
+                    if (line.Length > 0 && line[^1] == '\r') line.Length--;
+                    return line.ToString();
+                }
+            }
+        }
+    }
 
     private static readonly string[] FileNames = ["session.v4.jsonl.zstd", "session.v3.jsonl.zstd"];
     private static readonly StringComparer Paths = OperatingSystem.IsWindows() ? StringComparer.OrdinalIgnoreCase : StringComparer.Ordinal;
@@ -68,7 +115,7 @@ public sealed class HarnessReader(string root)
                 if (!Read(file)) continue;
                 return Display(now);
             }
-            catch (Exception failure) when (failure is IOException or UnauthorizedAccessException or JsonException or ZstdException)
+            catch (Exception failure) when (failure is IOException or UnauthorizedAccessException or InvalidDataException or JsonException or ZstdException)
             {
                 temporarilyUnreadable = true;
                 if (current != null && Paths.Equals(file.Path, current.Path)) return Display(now);
@@ -84,9 +131,13 @@ public sealed class HarnessReader(string root)
     private bool Read(Stamp file)
     {
         // Commit the scan only after the snapshot has been read and validated.
+        if (file.Bytes > MaxCompressedBytes) throw new InvalidDataException("Compressed session exceeds the size limit.");
         using var input = new FileStream(file.Path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete);
+        if (input.Length > MaxCompressedBytes) throw new InvalidDataException("Compressed session exceeds the size limit.");
         using var decoded = new DecompressionStream(input);
-        using var lines = new StreamReader(decoded);
+        decoded.SetParameter(ZSTD_dParameter.ZSTD_d_windowLogMax, 26);
+        using var text = new StreamReader(decoded);
+        var lines = new SessionLines(text);
         using var header = JsonDocument.Parse(lines.ReadLine() ?? throw new InvalidDataException("Missing header."));
         var h = header.RootElement;
         if (Text(h, "type") != "session") throw new InvalidDataException("Unexpected session header.");

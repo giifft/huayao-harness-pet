@@ -8,11 +8,25 @@ struct AppMain {
         if CommandLine.arguments.dropFirst().first == "--trae-hook" {
             let executable = URL(fileURLWithPath: CommandLine.arguments[0])
             guard executable.lastPathComponent == "huayao-trae-hook" else { return }
-            let now = Date()
-            let input = FileHandle.standardInput.readDataToEndOfFile()
             let bridge = TraeBridge(home: FileManager.default.homeDirectoryForCurrentUser,
                                    bridgeDirectory: executable.deletingLastPathComponent())
-            try? bridge.receive(input, now: now)
+            guard bridge.isEnabled,
+                  NSRunningApplication.runningApplications(withBundleIdentifier: "local.huayao.desktoppet")
+                    .contains(where: { !$0.isTerminated && $0.processIdentifier != ProcessInfo.processInfo.processIdentifier })
+            else { return }
+            let now = Date()
+            let input = FileHandle.standardInput
+            var payload = Data()
+            let limit = 2 * 1024 * 1024
+            do {
+                while let chunk = try input.read(upToCount: 64 * 1024), !chunk.isEmpty {
+                    guard chunk.count <= limit - payload.count else { return }
+                    payload.append(chunk)
+                }
+                if bridge.isEnabled { try bridge.receive(payload, now: now) }
+            } catch {
+                // Status reporting should never block a TRAE action.
+            }
             return
         }
         let app = NSApplication.shared
