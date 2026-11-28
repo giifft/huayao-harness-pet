@@ -3,7 +3,7 @@ import QuartzCore
 
 // MARK: - 控制器
 
-final class PetController: NSObject, NSApplicationDelegate {
+final class PetController: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private var window: PetWindow!
     private var scene: PetSceneView!
     private var petals: PetalView!
@@ -11,13 +11,25 @@ final class PetController: NSObject, NSApplicationDelegate {
     private var statusPill: StatusPill!
     private var director = Director()
     private let watcher = AgentWatcher()
+    private let billing = PetBilling()
     private let traeBridge = TraeBridge(home: FileManager.default.homeDirectoryForCurrentUser)
     private var statusItem: NSStatusItem!
     private var bubbleTimer: Timer?
+    private var interaction = PetInteractionSettings.load()
+    private let soundPlayer = PetSoundPlayer()
+    @MainActor private lazy var interactionDialogs = PetInteractionDialogs(soundPlayer: soundPlayer)
+    private var tapLineIndex = 0
+    private var lowBalanceText = ""
+    private var balanceNoticePending = false
+    private var isTaskBubble = false
     private var currentScale: CGFloat = 1
     private var menu: NSMenu!
     private let linkMenu = NSMenu(title: "AI 联动")
     private var linkItem: NSMenuItem!
+    private let taskMenu = NSMenu(title: "项目与任务")
+    private var taskItem: NSMenuItem!
+    private var activityHistory = ActivityHistory(clearedAt: Prefs.activityClearedAt)
+    private var currentTasks: [AgentActivity] = []
     private var platformItems: [AgentPlatform: NSMenuItem] = [:]
     private let poseMenu = NSMenu(title: "选择立绘")
     private var modeMenuItems: [PetMode: NSMenuItem] = [:]
@@ -47,8 +59,8 @@ final class PetController: NSObject, NSApplicationDelegate {
         updateModeMenuState()
         placeWindow()
 
-        scene.startIdle()
         director.start()
+        watcher.activityClearedAt = activityHistory.clearedAt
         watcher.onChange = { [weak self] s in
             self?.applyActivity(s)
         }
@@ -58,10 +70,14 @@ final class PetController: NSObject, NSApplicationDelegate {
             }
             try traeBridge.setEnabled(Prefs.linkedPlatforms.contains(.trae))
         } catch {
-            showTraeError("无法更新 TRAE 联动", error: error)
+            showLinkError("无法更新 TRAE 联动", error: error)
         }
+        billing.roundCompleted = { [weak self] cost, model in self?.showTurnCost(cost, model: model) }
+        billing.balanceWarning = { [weak self] low, balance in self?.setBalanceWarning(low, balance: balance) }
+        billing.budgetWarning = { [weak self] amount in self?.showBudgetWarning(amount) }
+        billing.start()
         watcher.start(platforms: Prefs.linkedPlatforms)
-        director.showWelcome()
+        director.speakLyrics()
 
         if let snap = ProcessInfo.processInfo.environment["HUAYAO_SNAPSHOT"] {
             let forced = ProcessInfo.processInfo.environment["HUAYAO_TEXT"]
@@ -75,9 +91,9 @@ final class PetController: NSObject, NSApplicationDelegate {
     }
 
     func applicationWillTerminate(_ notification: Notification) {
+        billing.stop()
         director.stop()
         watcher.stop()
-        scene.stopIdle()
         if let o = window?.frame.origin { Prefs.windowOrigin = o }
     }
 
@@ -86,6 +102,7 @@ final class PetController: NSObject, NSApplicationDelegate {
     private func buildWindow() {
         let rect = NSRect(x: 0, y: 0, width: 420, height: 320)
         window = PetWindow(contentRect: rect)
+        window.level = interaction.alwaysOnTop ? .floating : .normal
 
         let root = NSView(frame: rect)
         root.wantsLayer = true
@@ -102,20 +119,21 @@ final class PetController: NSObject, NSApplicationDelegate {
 
         bubble = BubbleView(frame: NSRect(x: 0, y: rect.height - 88, width: 220, height: 66))
         bubble.autoresizingMask = []
+        bubble.onHit = { [weak self] in self?.handleBubbleTap() }
         root.addSubview(bubble)
 
         statusPill = StatusPill(frame: NSRect(x: 8, y: 4, width: 120, height: 20))
         root.addSubview(statusPill)
+        statusPill.addGestureRecognizer(NSClickGestureRecognizer(target: self, action: #selector(showTaskMenu)))
 
-        scene.onClick = { [weak self] in
-            self?.scene.hopOnce()
-            self?.director.tapped()
-        }
+        scene.onClick = { [weak self] in self?.handlePetTap() }
         scene.onDragEnded = { [weak self] in
-            guard let self, let screen = self.window.screen else { return }
-            let frame = self.fitted(self.window.frame, to: screen.visibleFrame)
+            guard let self, let screen = self.window.screen ?? NSScreen.main else { return }
+            let frame = self.interaction.docking.place(self.window.frame, on: screen.visibleFrame, snap: true)
             self.window.setFrameOrigin(frame.origin)
+            self.updateMirroring(on: screen.visibleFrame)
             Prefs.windowOrigin = frame.origin
+            self.playPetSound(.land)
         }
         scene.onZoom = { [weak self] delta in
             guard let self else { return }
@@ -127,9 +145,17 @@ final class PetController: NSObject, NSApplicationDelegate {
 
     private func buildMenu() {
         let m = NSMenu()
+        taskItem = NSMenuItem(title: "项目与任务", action: nil, keyEquivalent: "")
+        taskItem.submenu = taskMenu
+        taskMenu.addItem(withTitle: "暂无任务活动", action: nil, keyEquivalent: "")
+        taskMenu.delegate = self
+        m.addItem(taskItem)
         linkItem = NSMenuItem(title: "AI 联动", action: nil, keyEquivalent: "")
         linkItem.submenu = linkMenu
         m.addItem(linkItem)
+        let billingItem = NSMenuItem(title: "用量与余额…", action: #selector(openBilling), keyEquivalent: "")
+        billingItem.target = self
+        m.addItem(billingItem)
         for (index, platform) in AgentPlatform.allCases.enumerated() {
             let item = NSMenuItem(title: platform.name, action: #selector(togglePlatform(_:)), keyEquivalent: "")
             item.target = self
@@ -144,6 +170,14 @@ final class PetController: NSObject, NSApplicationDelegate {
         let remove = NSMenuItem(title: "移除 TRAE 联动…", action: #selector(removeTrae), keyEquivalent: "")
         remove.target = self
         linkMenu.addItem(remove)
+        let configureAntigravity = NSMenuItem(title: "配置 Antigravity 联动…",
+                                              action: #selector(configureAntigravityLink), keyEquivalent: "")
+        configureAntigravity.target = self
+        linkMenu.addItem(configureAntigravity)
+        let removeAntigravity = NSMenuItem(title: "移除 Antigravity 联动",
+                                           action: #selector(removeAntigravityLink), keyEquivalent: "")
+        removeAntigravity.target = self
+        linkMenu.addItem(removeAntigravity)
         let toggle = NSMenuItem(title: "开启或关闭全部联动", action: #selector(toggleAllPlatforms), keyEquivalent: "")
         toggle.target = self
         linkMenu.addItem(toggle)
@@ -207,9 +241,10 @@ final class PetController: NSObject, NSApplicationDelegate {
 
         let top = NSMenuItem(title: "始终置顶", action: #selector(toggleAlwaysOnTop), keyEquivalent: "")
         top.target = self
-        top.state = .on
+        top.state = interaction.alwaysOnTop ? .on : .off
         m.addItem(top)
 
+        appendInteractionMenu(to: m)
         m.addItem(.separator())
 
         let quit = NSMenuItem(title: "退出桌宠", action: #selector(quit), keyEquivalent: "q")
@@ -232,8 +267,23 @@ final class PetController: NSObject, NSApplicationDelegate {
     }
 
     private func wireDirector() {
-        director.onSay = { [weak self] line in
-            self?.say(line.speaker, line.text)
+        director.canAutoChat = { [weak self] in
+            guard let self else { return false }
+            return self.window.isVisible && !self.isTaskBubble
+        }
+        director.onSay = { [weak self] line, isTask in
+            guard let self, self.window.isVisible else { return }
+            if let notice = line.taskNotice, notice.status.state == .waiting {
+                let event = self.waitEvent(for: notice.status)
+                let values = ["task": String(notice.displayName.prefix(40))]
+                self.sayBubble(event, values: values, fallback: line.text, isTask: true)
+            } else {
+                self.say(line.speaker, line.text, role: line.role, isTask: isTask)
+            }
+        }
+        director.customIdle = { [weak self] in
+            guard let self, self.window.isVisible else { return false }
+            return self.sayBubble(.idle)
         }
     }
 
@@ -243,6 +293,7 @@ final class PetController: NSObject, NSApplicationDelegate {
         currentScale = scale.clamped(0.7, 1.6)
         Prefs.scale = Double(currentScale)
         relayout(keepOnScreen: true)
+        if let window { Prefs.windowOrigin = window.frame.origin }
     }
 
     private func relayout(keepOnScreen: Bool = true) {
@@ -257,9 +308,15 @@ final class PetController: NSObject, NSApplicationDelegate {
         let newH = max(size.height, 160)
         frame = NSRect(x: anchorX - newW / 2, y: bottom, width: newW, height: newH)
         if keepOnScreen, let screen = window.screen {
-            frame = fitted(frame, to: screen.visibleFrame)
+            let area = screen.visibleFrame
+            let old = window.frame
+            if abs(old.minX - area.minX) < 0.5 { frame.origin.x = area.minX }
+            if abs(old.maxX - area.maxX) < 0.5 { frame.origin.x = area.maxX - newW }
+            if abs(old.maxY - area.maxY) < 0.5 { frame.origin.y = area.maxY - newH }
+            frame = fitted(frame, to: area)
         }
         window.setFrame(frame, display: true)
+        if let screen = window.screen { updateMirroring(on: screen.visibleFrame) }
         window.contentView?.frame = NSRect(origin: .zero, size: frame.size)
         scene.frame = window.contentView!.bounds
         petals.frame = window.contentView!.bounds
@@ -274,9 +331,10 @@ final class PetController: NSObject, NSApplicationDelegate {
         let maxTextW = max(80, min(210, cw - 56))
         let size = BubbleView.measure(text: bubble.text.isEmpty ? "测" : bubble.text,
                                       speaker: bubble.speaker,
+                                      image: bubble.image,
                                       maxTextWidth: maxTextW)
         let w = min(size.width, cw - 8)
-        let h = size.height
+        let h = size.height + (bubble.link == nil ? 0 : 19)
         let bx = (cw - w) / 2
         let by = content.bounds.height - h - 2
         bubble.frame = NSRect(x: bx, y: by, width: w, height: h)
@@ -298,6 +356,7 @@ final class PetController: NSObject, NSApplicationDelegate {
         let corner = NSPoint(x: screen.maxX - size.width - 40, y: screen.minY + 30)
         let frame = NSRect(origin: matching == nil ? corner : (saved ?? corner), size: size)
         window.setFrameOrigin(fitted(frame, to: screen).origin)
+        updateMirroring(on: screen)
     }
 
     private func overlap(_ frame: NSRect, _ screen: NSRect) -> CGFloat {
@@ -306,62 +365,160 @@ final class PetController: NSObject, NSApplicationDelegate {
     }
 
     private func fitted(_ frame: NSRect, to screen: NSRect) -> NSRect {
-        var frame = frame
-        frame.origin.x = frame.minX.clamped(screen.minX, max(screen.minX, screen.maxX - frame.width))
-        frame.origin.y = frame.minY.clamped(screen.minY, max(screen.minY, screen.maxY - frame.height))
-        return frame
+        interaction.docking.place(frame, on: screen, snap: false)
     }
 
     // MARK: 说话
 
-    private func say(_ who: Speaker, _ text: String) {
+    private func say(_ who: Speaker, _ text: String, role: String? = nil, isTask: Bool = false,
+                     image: NSImage? = nil, duration: TimeInterval = 3.2, link: URL? = nil) {
         guard let bubble else { return }
-        bubble.speaker = who.name
+        isTaskBubble = isTask
+        bubble.speaker = role ?? who.name
         bubble.text = text
+        bubble.image = image
+        bubble.link = link
+        bubble.imageAboveText = interaction.bubbles.imageAboveText == true
         layoutBubble()
         bubble.animator().alphaValue = 1
 
         bubbleTimer?.invalidate()
-        let t = Timer(timeInterval: 3.2, repeats: false) { [weak self] _ in
-            self?.bubble.animator().alphaValue = 0
+        bubbleTimer = nil
+        guard duration > 0 else { return }
+        let t = Timer(timeInterval: duration, repeats: false) { [weak self] _ in
+            guard let self else { return }
+            self.isTaskBubble = false
+            self.bubble.animator().alphaValue = 0
+            self.showPendingBalanceWarning()
         }
         RunLoop.main.add(t, forMode: .common)
         bubbleTimer = t
     }
 
+    private func handleBubbleTap() {
+        if isTaskBubble || bubbleTimer == nil {
+            bubbleTimer?.invalidate()
+            bubbleTimer = nil
+            isTaskBubble = false
+            bubble.animator().alphaValue = 0
+            return
+        }
+        handlePetTap()
+    }
+
     // MARK: AI 联动
 
-    private func applyActivity(_ statuses: [AgentPlatform: AgentStatus]) {
+    @objc private func openBilling() { billing.open() }
+
+    private func applyActivity(_ statuses: [AgentPlatform: [AgentStatus]]) {
         let platforms = Prefs.linkedPlatforms
-        let activities = AgentPlatform.allCases.compactMap { platform in
-            statuses[platform].map { AgentActivity(platform: platform, status: $0) }
-        }
+        let observed = AgentPlatform.allCases.flatMap { platform in
+            (statuses[platform] ?? []).map { AgentActivity(platform: platform, status: $0) }
+        }.filter { $0.status.state != .offline }
+        let cutoff = activityHistory.clearedAt
+        let activities = observed.filter { $0.status.isAfter(cutoff) }.sorted(by: AgentActivity.prioritized)
+        let notices = activityHistory.update(observed)
+        let connected = Set(observed.map(\.platform)).count
         for platform in AgentPlatform.allCases {
             let item = platformItems[platform]
-            let status = statuses[platform]
-            let text = status.map { $0.state == .offline ? $0.detailLine : $0.state.title } ?? "已关闭"
+            let source = statuses[platform]
+            let status = source.flatMap { values in
+                preferredStatus(values.filter { $0.state == .offline || $0.isAfter(cutoff) })
+            }
+            let text = status.map { $0.state == .offline ? $0.detailLine : $0.state.title }
+                ?? (source == nil ? "已关闭" : "等待新任务活动")
             item?.title = "\(platform.name) · \(text)"
             item?.state = platforms.contains(platform) ? .on : .off
             item?.toolTip = status?.detailLine
         }
         linkMenu.items.last?.title = platforms.isEmpty ? "开启常规联动" : "关闭全部联动"
 
-        let selected = activities.filter { $0.status.state != .offline }.max {
-            let lhs = $0.status
-            let rhs = $1.status
-            if lhs.state.priority != rhs.state.priority { return lhs.state.priority < rhs.state.priority }
-            return lhs.lastActivity < rhs.lastActivity
-        }
+        let selected = activities.first
+        let waiting = activities.filter { $0.status.state == .waiting }.count
+        let running = activities.filter { $0.status.state == .thinking || $0.status.state == .working }.count
+        let activeCounts = [running > 0 ? "\(running) 项进行中" : nil, waiting > 0 ? "\(waiting) 项待确认" : nil]
+            .compactMap { $0 }.joined(separator: " · ")
         let summary: String
-        if let selected {
+        if !activeCounts.isEmpty {
+            summary = activeCounts
+        } else if let selected {
             summary = "\(selected.platform.shortName) · \(selected.status.state.title)"
         } else {
-            summary = platforms.isEmpty ? "AI 联动已关闭" : "AI 联动 · 等待会话"
+            if platforms.isEmpty { summary = "AI 联动已关闭" }
+            else { summary = cutoff == nil ? "AI 联动 · 等待会话" : "等待新任务活动" }
         }
-        linkItem.title = "AI 联动  ·  \(activities.filter { $0.status.state != .offline }.count)/\(AgentPlatform.allCases.count)"
+        currentTasks = activities.filter { $0.status.state.isBusy || ($0.status.sessionID != nil && !$0.status.state.isTerminal) }
+        taskItem.title = activeCounts.isEmpty ? "项目与任务" : "项目与任务 · \(activeCounts)"
+        linkItem.title = "AI 联动  ·  \(connected)/\(AgentPlatform.allCases.count)"
         statusItem.button?.toolTip = summary
-        statusPill.update(selected?.status ?? AgentStatus(), summary: summary)
-        director.activityChanged(selected)
+        let pillStatus = activeCounts.isEmpty
+            ? selected?.status ?? AgentStatus(state: connected > 0 ? .idle : .offline)
+            : AgentStatus(state: selected?.status.state ?? .idle)
+        statusPill.update(pillStatus, summary: summary)
+        scene.activity = selected?.status.state ?? .idle
+        updateFeedbackPose()
+        for notice in notices where notice.status.state == .waiting {
+            playPetSound(waitEvent(for: notice.status) == .question ? .question : .approval)
+        }
+        director.activityChanged(selected, notices: notices)
+        billing.observe(statuses[.harness]?.compactMap(\.harnessUsage).first)
+        showPendingBalanceWarning()
+    }
+
+    @objc private func showTaskMenu() {
+        taskMenu.popUp(positioning: nil, at: NSPoint(x: 0, y: statusPill.bounds.height), in: statusPill)
+    }
+
+    func menuNeedsUpdate(_ menu: NSMenu) {
+        guard menu === taskMenu else { return }
+        menu.removeAllItems()
+        let now = Date()
+        let recent = activityHistory.recent.filter {
+            Prefs.linkedPlatforms.contains($0.platform) && now.timeIntervalSince($0.status.lastActivity) <= 1800
+        }
+        let sections = [("会话", currentTasks), ("最近结果", recent)]
+        let duplicates = Dictionary(grouping: currentTasks + recent, by: \.displayName).filter {
+            Set($0.value.map(\.id)).count > 1
+        }
+        for (title, items) in sections where !items.isEmpty {
+            if !taskMenu.items.isEmpty { taskMenu.addItem(.separator()) }
+            taskMenu.addItem(withTitle: title, action: nil, keyEquivalent: "")
+            for item in items {
+                let status = item.status
+                let display = item.displayName
+                let suffix = duplicates[display] != nil ? status.sessionID.map { " (\($0.prefix(8)))" } ?? "" : ""
+                let name = "\(status.state.title) · \(display)\(suffix)"
+                let detail = status.state == .working && !status.detailLine.isEmpty ? " · \(status.detailLine)" : ""
+                let row = taskMenu.addItem(withTitle: name + detail, action: nil, keyEquivalent: "")
+                let time = status.lastActivity == .distantPast ? "" : status.lastActivity.formatted(date: .omitted, time: .shortened)
+                row.toolTip = [status.detailLine, time].filter { !$0.isEmpty }.joined(separator: " · ")
+            }
+        }
+        if taskMenu.items.isEmpty {
+            taskMenu.addItem(withTitle: "暂无任务活动", action: nil, keyEquivalent: "")
+        }
+        taskMenu.addItem(.separator())
+        let hasTasks = !currentTasks.isEmpty || !recent.isEmpty
+        let clear = taskMenu.addItem(withTitle: "清空任务状态",
+                                     action: hasTasks ? #selector(clearTaskStatus) : nil, keyEquivalent: "")
+        clear.target = self
+        clear.isEnabled = hasTasks
+        clear.toolTip = "清空桌宠中各平台的任务显示和提醒，继续监听新活动。"
+    }
+
+    @objc private func clearTaskStatus() {
+        let now = Date()
+        Prefs.activityClearedAt = now
+        activityHistory.clear(at: now)
+        watcher.activityClearedAt = now
+        director.clearTaskDialogue()
+        if isTaskBubble {
+            bubbleTimer?.invalidate()
+            bubbleTimer = nil
+            isTaskBubble = false
+            bubble.animator().alphaValue = 0
+        }
+        applyActivity(watcher.statuses)
     }
 
     /// 自检：把当前窗口内容渲染成 PNG
@@ -387,14 +544,12 @@ final class PetController: NSObject, NSApplicationDelegate {
         director.mode = newMode
 
         scene.pose = Assets.shared.selectedPose(for: mode)
+        tapLineIndex = 0
+        updateFeedbackPose()
         relayout()
         updateModeMenuState()
-        scene.hopOnce()
 
-        if announce {
-            let who: Speaker = newMode == .sheng ? .sheng : .hua
-            say(who, Script.modeIntro(newMode))
-        }
+        if announce { speakNow() }
     }
 
     private func updateModeMenuState() {
@@ -438,28 +593,14 @@ final class PetController: NSObject, NSApplicationDelegate {
 
     @objc private func speakNow() {
         director.clearDialogue()
-        let who: Speaker
-        let pool: [String]
-        switch mode {
-        case .hua:
-            who = .hua
-            pool = Bool.random() ? Script.soloHua : Script.idleLines(for: .hua)
-        case .sheng:
-            who = .sheng
-            pool = Bool.random() ? Script.soloSheng : Script.idleLines(for: .sheng)
-        case .duo:
-            who = Bool.random() ? .hua : .sheng
-            pool = Script.idleLines(for: who)
-        }
-        say(who, pool.randomElement() ?? "……")
-        scene.hopOnce()
+        director.speakLyrics()
     }
 
     @objc private func toggleAutoChat() {
         Prefs.autoChat.toggle()
         menu.item(withTitle: "自动闲聊")?.state = Prefs.autoChat ? .on : .off
-        director.clearDialogue()
-        sayInCurrentMode(Prefs.autoChat ? "好，我们接着说。" : "那我们安静些。", preferred: .hua)
+        director.clearDialogue(restartOpera: Prefs.autoChat)
+        sayInCurrentMode(Script.autoChatLine(enabled: Prefs.autoChat, mode: mode), preferred: .hua)
     }
 
     @objc private func togglePlatform(_ sender: NSMenuItem) {
@@ -484,7 +625,7 @@ final class PetController: NSObject, NSApplicationDelegate {
                 try traeBridge.setEnabled(platforms.contains(.trae))
             }
         } catch {
-            showTraeError("无法更新 TRAE 联动", error: error)
+            showLinkError("无法更新 TRAE 联动", error: error)
             return
         }
         Prefs.linkedPlatforms = platforms
@@ -528,11 +669,38 @@ final class PetController: NSObject, NSApplicationDelegate {
             try traeBridge.uninstall()
             setLinkedPlatforms(Prefs.linkedPlatforms.subtracting([.trae]))
         } catch {
-            showTraeError("无法移除 TRAE 联动", error: error)
+            showLinkError("无法移除 TRAE 联动", error: error)
         }
     }
 
-    private func showTraeError(_ title: String, error: Error) {
+    @objc private func configureAntigravityLink() {
+        guard let executable = Bundle.main.executableURL else { return }
+        let alert = NSAlert()
+        alert.messageText = "配置 Antigravity 联动"
+        alert.informativeText = "在 Antigravity 的全局配置中添加花妖 Hooks，在本机显示工作区和各会话的进度。"
+        alert.addButton(withTitle: "配置")
+        alert.addButton(withTitle: "取消")
+        NSApp.activate(ignoringOtherApps: true)
+        guard alert.runModal() == .alertFirstButtonReturn else { return }
+        do {
+            try AntigravityBridge().install(executable: executable)
+            setLinkedPlatforms(Prefs.linkedPlatforms.union([.antigravity]))
+            sayInCurrentMode("Antigravity 已配置，等它开始处理任务。", preferred: .hua)
+        } catch {
+            showLinkError("无法配置 Antigravity 联动", error: error)
+        }
+    }
+
+    @objc private func removeAntigravityLink() {
+        do {
+            try AntigravityBridge().uninstall()
+            setLinkedPlatforms(Prefs.linkedPlatforms.subtracting([.antigravity]))
+        } catch {
+            showLinkError("无法移除 Antigravity 联动", error: error)
+        }
+    }
+
+    private func showLinkError(_ title: String, error: Error) {
         let alert = NSAlert(error: error)
         alert.messageText = title
         NSApp.activate(ignoringOtherApps: true)
@@ -571,22 +739,192 @@ final class PetController: NSObject, NSApplicationDelegate {
         guard let window, let screen = NSScreen.main?.visibleFrame else { return }
         let s = window.frame.size
         window.setFrameOrigin(NSPoint(x: screen.maxX - s.width - 40, y: screen.minY + 30))
+        updateMirroring(on: screen)
         Prefs.windowOrigin = window.frame.origin
     }
 
     @objc private func toggleAlwaysOnTop() {
         guard let window else { return }
-        if window.level == .floating {
-            window.level = .normal
-            menu.item(withTitle: "始终置顶")?.state = .off
-        } else {
-            window.level = .floating
-            menu.item(withTitle: "始终置顶")?.state = .on
-        }
+        interaction.alwaysOnTop.toggle()
+        interaction.save()
+        window.level = interaction.alwaysOnTop ? .floating : .normal
+        menu.item(withTitle: "始终置顶")?.state = interaction.alwaysOnTop ? .on : .off
     }
 
     @objc private func quit() {
         NSApp.terminate(nil)
+    }
+}
+
+// MARK: 桌宠交互
+
+extension PetController {
+    private func appendInteractionMenu(to menu: NSMenu) {
+        let item = NSMenuItem(title: "互动设置", action: nil, keyEquivalent: "")
+        let settings = NSMenu()
+        item.submenu = settings
+        func add(_ title: String, _ action: Selector, to targetMenu: NSMenu) -> NSMenuItem {
+            let entry = NSMenuItem(title: title, action: action, keyEquivalent: "")
+            entry.target = self
+            targetMenu.addItem(entry)
+            return entry
+        }
+        _ = add("拖动与吸边…", #selector(editDocking), to: settings)
+        _ = add("提示音…", #selector(editSounds), to: settings)
+        let poseToggle = add("随状态切换姿态", #selector(toggleStatusPoses(_:)), to: settings)
+        poseToggle.state = interaction.statusPoses ? .on : .off
+
+        let bubbleEntry = NSMenuItem(title: "气泡设置", action: nil, keyEquivalent: "")
+        let bubbleMenu = NSMenu()
+        bubbleEntry.submenu = bubbleMenu
+        settings.addItem(bubbleEntry)
+        for event in PetBubbleEvent.allCases {
+            let entry = add("\(event.title)…", #selector(editBubble(_:)), to: bubbleMenu)
+            entry.representedObject = event.rawValue
+        }
+        menu.addItem(item)
+        _ = add("隐藏桌宠", #selector(togglePetVisibility(_:)), to: menu)
+    }
+
+    @objc private func togglePetVisibility(_ item: NSMenuItem) {
+        if window.isVisible {
+            Prefs.windowOrigin = window.frame.origin
+            director.clearDialogue()
+            bubbleTimer?.invalidate()
+            bubble.alphaValue = 0
+            isTaskBubble = false
+            window.orderOut(nil)
+            item.title = "显示桌宠"
+        } else {
+            placeWindow()
+            window.orderFrontRegardless()
+            item.title = "隐藏桌宠"
+            showPendingBalanceWarning()
+        }
+    }
+
+    @MainActor @objc private func editDocking() {
+        guard let settings = interactionDialogs.editDocking(interaction.docking) else { return }
+        interaction.docking = settings
+        interaction.save()
+        guard let screen = window.screen?.visibleFrame else { return }
+        updateMirroring(on: screen)
+    }
+
+    @MainActor @objc private func editSounds() {
+        guard let settings = interactionDialogs.editAudio(interaction) else { return }
+        interaction.sounds = settings
+        interaction.save()
+    }
+
+    @objc private func toggleStatusPoses(_ item: NSMenuItem) {
+        interaction.statusPoses.toggle()
+        interaction.save()
+        item.state = interaction.statusPoses ? .on : .off
+        updateFeedbackPose()
+    }
+
+    @MainActor @objc private func editBubble(_ item: NSMenuItem) {
+        guard let key = item.representedObject as? String, let event = PetBubbleEvent(rawValue: key),
+              let settings = interactionDialogs.editBubble(event, current: interaction.bubbles) else { return }
+        interaction.bubbles = settings
+        interaction.save()
+        if event == .tap { tapLineIndex = 0 }
+    }
+
+    private func updateMirroring(on screen: NSRect) {
+        let nearLeft = abs(window.frame.minX - screen.minX) <= max(1, interaction.docking.distance(for: .left))
+        scene.mirrored = interaction.docking.mirrorOnLeft && nearLeft
+    }
+
+    private func playPetSound(_ event: PetSound) {
+        guard window.isVisible else { return }
+        soundPlayer.play(event, settings: interaction.sound(event))
+    }
+
+    private func handlePetTap() {
+        billing.refreshFromPet()
+        playPetSound(.tap)
+
+        let settings = interaction.bubbles
+        let lines = settings.lines[PetBubbleEvent.tap.rawValue] ?? []
+        let image = settings.image(for: .tap)
+        let link = settings.link(for: .tap)
+        if lines.isEmpty, image == nil, link == nil {
+            director.tapped()
+            return
+        }
+        director.clearDialogue()
+        var text = ""
+        if !lines.isEmpty {
+            text = settings.randomTap ? lines.randomElement() ?? "" : lines[tapLineIndex % lines.count]
+            tapLineIndex = (tapLineIndex + 1) % lines.count
+        }
+        say(mode == .sheng ? .sheng : .hua, text, image: image, duration: Double(settings.duration(for: .tap)), link: link)
+    }
+
+    private func updateFeedbackPose() {
+        guard interaction.statusPoses else {
+            if scene.feedbackPose != nil { scene.feedbackPose = nil }
+            return
+        }
+        let ids: (String, String, String)?
+        switch scene.activity {
+        case .thinking: ids = ("D02", "H02", "S02")
+        case .working: ids = ("D10", "H04", "S03")
+        case .waiting: ids = ("D11", "H09", "S04")
+        case .done: ids = ("D01", "H12", "S01")
+        case .error: ids = ("D16", "H06", "S02")
+        case .offline, .idle, .cancelled:
+            ids = scene.lowBalance ? ("D16", "H06", "S02") : nil
+        }
+        let id = ids.map { mode == .duo ? $0.0 : mode == .hua ? $0.1 : $0.2 }
+        let pose = id.flatMap { wanted in Assets.shared.poses(for: mode).first { $0.id == wanted } }
+        if scene.feedbackPose?.id != pose?.id { scene.feedbackPose = pose }
+    }
+
+    private func waitEvent(for status: AgentStatus) -> PetBubbleEvent {
+        status.waitKind == .question ? .question : .approval
+    }
+
+    @discardableResult
+    private func sayBubble(_ event: PetBubbleEvent, values: [String: String] = [:], fallback: String? = nil,
+                           isTask: Bool = false) -> Bool {
+        let text = interaction.bubbles.text(for: event, values: values) ?? fallback
+        let image = interaction.bubbles.image(for: event)
+        let link = interaction.bubbles.link(for: event)
+        guard text != nil || image != nil || link != nil else { return false }
+        say(mode == .sheng ? .sheng : .hua, text ?? "", isTask: isTask, image: image,
+            duration: Double(interaction.bubbles.duration(for: event)), link: link)
+        return true
+    }
+
+    func showTurnCost(_ cost: String, model: String = "") {
+        guard window.isVisible else { return }
+        playPetSound(.cost)
+        guard scene.activity != .waiting else { return }
+        sayBubble(.cost, values: ["cost": cost, "model": model], fallback: "本轮消耗 \(cost)", isTask: true)
+    }
+
+    func showBudgetWarning(_ amount: String) {
+        guard window.isVisible, scene.activity != .waiting else { return }
+        sayBubble(.budget, values: ["amount": amount], fallback: "今日用量已达预算 \(amount)。", isTask: true)
+    }
+
+    func setBalanceWarning(_ isLow: Bool, balance: String = "") {
+        if isLow && !scene.lowBalance { balanceNoticePending = true }
+        if !isLow { balanceNoticePending = false }
+        scene.lowBalance = isLow
+        lowBalanceText = balance
+        updateFeedbackPose()
+        showPendingBalanceWarning()
+    }
+
+    private func showPendingBalanceWarning() {
+        guard balanceNoticePending, window.isVisible, !scene.activity.isBusy, !isTaskBubble else { return }
+        balanceNoticePending = false
+        let message = lowBalanceText.isEmpty ? "账户余额低于预警线。" : "账户余额偏低 · \(lowBalanceText)"
+        sayBubble(.warning, values: ["balance": lowBalanceText], fallback: message, isTask: true)
     }
 }
 
@@ -620,8 +958,10 @@ final class StatusPill: NSView {
 
     required init?(coder: NSCoder) { fatalError() }
 
+    override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
+
     func update(_ s: AgentStatus, summary: String) {
-        let detail = s.toolDetail.isEmpty ? summary : "\(summary) · \(s.toolDetail)"
+        let detail = s.state == .working && !s.detailLine.isEmpty ? "\(summary) · \(s.detailLine)" : summary
         let color: NSColor
         switch s.state {
         case .thinking: color = Palette.gold

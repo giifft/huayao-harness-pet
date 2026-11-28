@@ -14,7 +14,7 @@ var reader = new HarnessReader(root);
 void Add(string name, object? data = null) =>
     events.Add(new { type = name, seq = events.Count, time = baseMs + events.Count, data });
 
-void Write(string path, int depth = 0, int newerBy = 0)
+void Write(string path, int depth = 0, double newerBy = 0)
 {
     Directory.CreateDirectory(Path.GetDirectoryName(path)!);
     var staged = path + ".tmp";
@@ -46,6 +46,10 @@ try
     Add("request/context", new { model = "test/deepseek-demo" });
     Write(main, newerBy: 1);
     Check(PetPhase.Thinking, "Atomic replacement", detail: "deepseek-demo");
+    Add("tool/call", new { callId = "cmd", name = "bash" });
+    Write(main, newerBy: 1.5);
+    Check(PetPhase.Working, "Command status uses female pronoun", detail: "她在敲命令");
+    Add("tool/result", new { message = new { toolCallId = "cmd" } });
     Add("tool/call", new { callId = "a", name = "read", arguments = "dummy secret" });
     Add("tool/call", new { callId = "b", name = "grep" });
     Add("tool/result", new { message = new { toolCallId = "b" } });
@@ -80,6 +84,8 @@ try
     Write(legacy, newerBy: 8);
     Check(PetPhase.Thinking, "New active v3 session");
     Check(PetPhase.Idle, "Stale work expires", later: 95);
+    HarnessUsageChecks.Run();
+    CompanionHookChecks.Run(root, now);
     if (args.Length == 1 && new HarnessReader(args[0]).Refresh(DateTimeOffset.UtcNow).Phase == PetPhase.Offline)
         throw new Exception("The installed Harness session could not be read.");
 }

@@ -7,14 +7,38 @@
     <UseWindowsForms>true</UseWindowsForms>
     <Nullable>enable</Nullable>
     <AssemblyName>HuaYaoPet</AssemblyName>
-    <Version>1.0.3</Version>
+    <Version>1.1.0</Version>
     <ApplicationIcon>HuaYaoPet.ico</ApplicationIcon>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
     <SatelliteResourceLanguages>zh-Hans;en</SatelliteResourceLanguages>
   </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="../Core/HuaYaoPet.Core.csproj" />
     <EmbeddedResource Include="../../Resources/ThemeLyrics.txt" LogicalName="HuaYaoPet.ThemeLyrics.txt" />
+    <EmbeddedResource Include="../../Resources/OperaScene.txt" LogicalName="HuaYaoPet.OperaScene.txt" />
     <Content Include="../../Resources/Pets/*.png" Link="Pets/%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+    <Content Include="../../Resources/PetSounds/*.wav" Link="PetSounds/%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+    <Content Include="../../LICENSE" Link="LICENSE-CODE.txt" CopyToPublishDirectory="PreserveNewest" />
+    <Content Include="../../NOTICE-ARTWORK.zh-CN.txt" Link="NOTICE-ARTWORK.zh-CN.txt" CopyToPublishDirectory="PreserveNewest" />
+    <Content Include="../ZstdSharp-LICENSE.txt" Link="ZstdSharp-LICENSE.txt" CopyToPublishDirectory="PreserveNewest" />
     <Content Include="HuaYaoPet.ico" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
   </ItemGroup>
+  <Target Name="IncludeRuntimeNotices" AfterTargets="ComputeFilesToPublish" Condition="'$(SelfContained)' == 'true'">
+    <ItemGroup>
+      <DotNetRuntimePack Include="@(ResolvedRuntimePack->WithMetadataValue('FrameworkName', 'Microsoft.NETCore.App'))" />
+      <DesktopRuntimePack Include="@(ResolvedRuntimePack->WithMetadataValue('FrameworkName', 'Microsoft.WindowsDesktop.App'))" />
+      <ResolvedFileToPublish Include="@(DotNetRuntimePack->'%(PackageDirectory)/LICENSE.TXT')">
+        <RelativePath>DotNet-LICENSE.txt</RelativePath>
+        <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
+      </ResolvedFileToPublish>
+      <ResolvedFileToPublish Include="@(DotNetRuntimePack->'%(PackageDirectory)/THIRD-PARTY-NOTICES.TXT')">
+        <RelativePath>DotNet-THIRD-PARTY-NOTICES.txt</RelativePath>
+        <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
+      </ResolvedFileToPublish>
+      <ResolvedFileToPublish Include="@(DesktopRuntimePack->'%(PackageDirectory)/LICENSE')">
+        <RelativePath>DotNet-WindowsDesktop-LICENSE.txt</RelativePath>
+        <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
+      </ResolvedFileToPublish>
+    </ItemGroup>
+  </Target>
 </Project>

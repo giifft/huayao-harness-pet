@@ -15,10 +15,27 @@ internal sealed class Preferences
     public bool Petals { get; set; } = true;
     public bool AutoChat { get; set; } = true;
     public bool Link { get; set; } = true;
+    public bool CodexLink { get; set; } = true;
+    public bool WorkBuddyLink { get; set; } = true;
+    public bool TraeLink { get; set; }
+    public bool AntigravityLink { get; set; }
+    public bool DoubaoLink { get; set; }
     public bool Top { get; set; } = true;
     public double Zoom { get; set; } = 1;
     public double? Left { get; set; }
     public double? TopPosition { get; set; }
+    public int? ScreenPixelLeft { get; set; }
+    public int? ScreenPixelTop { get; set; }
+    public long TasksClearedAt { get; set; }
+    public EdgeSettings Edges { get; set; } = new();
+    public bool StatePoses { get; set; } = true;
+    public Dictionary<PetCue, CueSettings> Cues { get; set; } = new();
+    public Dictionary<BubbleEvent, string> Bubbles { get; set; } = new();
+    public Dictionary<BubbleEvent, byte[]> BubblePictures { get; set; } = new();
+    public Dictionary<BubbleEvent, int> BubbleDurations { get; set; } = new();
+    public Dictionary<BubbleEvent, string> BubbleLinks { get; set; } = new();
+    public bool RandomTapBubble { get; set; }
+    public bool BubbleImageAboveText { get; set; }
 
     public static Preferences Load()
     {
@@ -26,6 +43,12 @@ internal sealed class Preferences
         {
             var prefs = JsonSerializer.Deserialize<Preferences>(File.ReadAllText(SettingsFile)) ?? new Preferences();
             prefs.Poses ??= new();
+            prefs.Edges ??= new();
+            prefs.Cues ??= new();
+            prefs.Bubbles ??= new();
+            prefs.BubblePictures ??= new();
+            prefs.BubbleDurations ??= new();
+            prefs.BubbleLinks ??= new();
             return prefs;
         }
         catch (Exception problem) when (problem is IOException or JsonException or UnauthorizedAccessException)

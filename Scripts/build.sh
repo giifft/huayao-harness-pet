@@ -45,8 +45,13 @@ cp "$ZSTD_SOURCE_DIR/LICENSE" "$RES/Zstandard-LICENSE.txt"
 codesign --sign - "$CONTENTS/Helpers/dsh-unzstd"
 
 echo "==> 拷贝素材"
-cp -R "$ROOT/Resources/Pets" "$RES/Pets"
-cp "$ROOT/Resources/ThemeLyrics.txt" "$RES/"
+mkdir -p "$RES/Pets" "$RES/PetSounds"
+cp "$ROOT"/Resources/Pets/*.png "$RES/Pets/"
+cp "$ROOT"/Resources/PetSounds/*.wav "$RES/PetSounds/"
+cp "$ROOT/Resources/ThemeLyrics.txt" "$ROOT/Resources/OperaScene.txt" "$RES/"
+cp "$ROOT/Resources/HarnessPricing.json" "$RES/"
+cp "$ROOT/LICENSE" "$RES/LICENSE-CODE.txt"
+cp "$ROOT/NOTICE-ARTWORK.zh-CN.txt" "$RES/"
 
 echo "==> 写 Info.plist"
 cat > "$CONTENTS/Info.plist" <<'PLIST'
@@ -57,8 +62,8 @@ cat > "$CONTENTS/Info.plist" <<'PLIST'
   <key>CFBundleName</key>              <string>花妖桌宠</string>
   <key>CFBundleDisplayName</key>       <string>花妖桌宠</string>
   <key>CFBundleIdentifier</key>        <string>local.huayao.desktoppet</string>
-  <key>CFBundleVersion</key>           <string>1.2.3</string>
-  <key>CFBundleShortVersionString</key><string>1.2.3</string>
+  <key>CFBundleVersion</key>           <string>1.3.0</string>
+  <key>CFBundleShortVersionString</key><string>1.3.0</string>
   <key>CFBundleExecutable</key>        <string>HuaYaoPet</string>
   <key>CFBundlePackageType</key>       <string>APPL</string>
   <key>LSMinimumSystemVersion</key>    <string>13.0</string>

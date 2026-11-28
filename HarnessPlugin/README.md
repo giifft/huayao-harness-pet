@@ -9,9 +9,9 @@
 
 ## 安装或启用
 
-1. 在电脑上保存 `huayao-harness-pet-1.1.2.tgz`，保留压缩包。
+1. 在电脑上保存 `huayao-harness-pet-1.2.0.tgz`，保留压缩包。
 2. 打开支持第三方插件的 DeepSeek Harness 桌面版，在左侧进入「插件」，选择「添加插件」或「安装第三方插件」。
-3. 在包名输入框中粘贴压缩包的**完整本地路径**。macOS 示例为 `/Users/你的用户名/Downloads/huayao-harness-pet-1.1.2.tgz`，Windows 示例为 `C:\Users\你的用户名\Downloads\huayao-harness-pet-1.1.2.tgz`。把示例路径换为你的实际路径。
+3. 在包名输入框中粘贴压缩包的**完整本地路径**。macOS 示例为 `/Users/你的用户名/Downloads/huayao-harness-pet-1.2.0.tgz`，Windows 示例为 `C:\Users\你的用户名\Downloads\huayao-harness-pet-1.2.0.tgz`。把示例路径换为你的实际路径。
 4. 确认预览里的包名为 `huayao-harness-pet`，安装后选择「立即启用」。若 Harness 提示重启，在重启后继续。
 5. 回到聊天页，查看 Harness 窗口右下角。停用或卸载通过同一个「插件」页面操作。
 

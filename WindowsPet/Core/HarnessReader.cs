@@ -10,6 +10,11 @@ public enum PetPhase { Offline, Idle, Thinking, Working, Waiting, Done, Cancelle
 
 public sealed record PetStatus(PetPhase Phase, string Detail, long Activity = 0)
 {
+    public HarnessUsageSummary? Usage { get; init; }
+    public HarnessWaitKind? WaitKind { get; init; }
+    public string? SessionId { get; init; }
+    public string? SessionTitle { get; init; }
+    public string? ProjectName { get; init; }
     public bool Busy => Phase is PetPhase.Thinking or PetPhase.Working or PetPhase.Waiting;
 
     public string Label => Phase switch
@@ -18,7 +23,7 @@ public sealed record PetStatus(PetPhase Phase, string Detail, long Activity = 0)
         PetPhase.Idle => string.IsNullOrEmpty(Detail) ? "空闲" : $"空闲 · {Detail}",
         PetPhase.Thinking => string.IsNullOrEmpty(Detail) ? "思考中" : $"思考中 · {Detail}",
         PetPhase.Working => $"干活中 · {Detail}",
-        PetPhase.Waiting => "待确认 · 请回 Harness 确认",
+        PetPhase.Waiting => WaitKind == HarnessWaitKind.Question ? "待回答 · 请回 Harness 回复" : "待确认 · 请回 Harness 确认",
         PetPhase.Done => "完成 · 刚忙完一轮",
         PetPhase.Cancelled => "已中止",
         PetPhase.Error => "出错 · 本轮遇到问题",
@@ -81,9 +86,12 @@ public sealed class HarnessReader(string root)
     private Cursor? cursor;
     private bool currentHasEvents;
     private readonly HashSet<string> childFiles = new(Paths);
+    private readonly Dictionary<string, (Stamp Stamp, IReadOnlyList<HarnessUsageRound> Rounds)> usageFiles = new(Paths);
+    private readonly Dictionary<string, (Stamp Stamp, DateTimeOffset After)> usageRetry = new(Paths);
     private PetStatus raw = new(PetPhase.Idle, "");
+    private HarnessUsageSummary? usageSummary;
     private string model = "";
-    private readonly List<(string Id, string Label)> tools = [];
+    private readonly List<(string Id, string Label, bool IsQuestion)> tools = [];
     private readonly HashSet<string> approvals = [];
 
     public static HarnessReader ForCurrentUser()
@@ -104,6 +112,7 @@ public sealed class HarnessReader(string root)
             .ThenBy(file => file.Path, Paths)
             .ToArray();
         childFiles.IntersectWith(candidates.Select(file => file.Path));
+        RefreshUsage(candidates, now);
 
         bool temporarilyUnreadable = false;
         foreach (var file in candidates)
@@ -125,15 +134,78 @@ public sealed class HarnessReader(string root)
         current = null;
         cursor = null;
         currentHasEvents = false;
-        return new PetStatus(PetPhase.Offline, temporarilyUnreadable ? "会话暂时无法读取" : "暂无会话");
+        return new PetStatus(PetPhase.Offline, temporarilyUnreadable ? "会话暂时无法读取" : "暂无会话") { Usage = usageSummary };
     }
+
+    private void RefreshUsage(Stamp[] files, DateTimeOffset now)
+    {
+        // Cap per-poll work so a large archive does not stall the task monitor on startup.
+        var candidates = files.Take(512).ToArray();
+        var paths = candidates.Select(file => file.Path).ToHashSet(Paths);
+        foreach (var path in usageFiles.Keys.Where(path => !paths.Contains(path)).ToArray()) usageFiles.Remove(path);
+        foreach (var path in usageRetry.Keys.Where(path => !paths.Contains(path)).ToArray()) usageRetry.Remove(path);
+        var elapsed = Stopwatch.StartNew();
+        int budget = 4;
+        foreach (var file in candidates)
+        {
+            if (budget == 0 || elapsed.ElapsedMilliseconds >= 400) break;
+            if (usageFiles.TryGetValue(file.Path, out var saved) && saved.Stamp == file) continue;
+            if (usageRetry.TryGetValue(file.Path, out var retry) && retry.Stamp == file && retry.After > now) continue;
+            budget--;
+            try
+            {
+                usageFiles[file.Path] = (file, ReadUsage(file));
+                usageRetry.Remove(file.Path);
+            }
+            catch (Exception failure) when (failure is IOException or UnauthorizedAccessException or InvalidDataException or JsonException or ZstdException)
+            {
+                usageRetry[file.Path] = (file, now.AddSeconds(30));
+            }
+        }
+        var pending = candidates.Length < files.Length || candidates.Any(file => usageFiles.GetValueOrDefault(file.Path).Stamp != file);
+        var rounds = candidates.SelectMany(file => usageFiles.GetValueOrDefault(file.Path).Rounds ?? []);
+        usageSummary = HarnessUsageSummary.Make(rounds, now, HarnessPricing.Bundled, pending);
+    }
+
+    private static IReadOnlyList<HarnessUsageRound> ReadUsage(Stamp file)
+    {
+        using var input = OpenSnapshot(file);
+        using var decoded = new DecompressionStream(input);
+        decoded.SetParameter(ZSTD_dParameter.ZSTD_d_windowLogMax, 26);
+        using var text = new StreamReader(decoded);
+        var lines = new SessionLines(text);
+        using var header = JsonDocument.Parse(lines.ReadLine() ?? throw new InvalidDataException("Missing header."));
+        var h = header.RootElement;
+        if (Text(h, "type") != "session") throw new InvalidDataException("Unexpected session header.");
+        var fold = new HarnessUsageFold(Text(h, "id") ?? Path.GetDirectoryName(file.Path) ?? file.Path, HarnessPricing.Bundled);
+        for (int count = 1; lines.ReadLine() is { } line; count++)
+        {
+            if (count >= 50_000) throw new InvalidDataException("Session exceeds the record limit.");
+            if (line.Length == 0) continue;
+            using var document = JsonDocument.Parse(line);
+            var row = document.RootElement;
+            if (Number(row, "seq") is long seq && Number(row, "time") is long time && Text(row, "type") is string type)
+                fold.Accept(type, Child(row, "data"), seq, time);
+        }
+        if (file != Inspect(file.Path)) throw new IOException("Session was replaced while reading.");
+        return fold.Rounds;
+    }
+
+    private static FileStream OpenSnapshot(Stamp file)
+    {
+        if (file.Bytes > MaxCompressedBytes) throw new InvalidDataException("Compressed session exceeds the size limit.");
+        var input = new FileStream(file.Path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete);
+        if (input.Length <= MaxCompressedBytes) return input;
+        input.Dispose();
+        throw new InvalidDataException("Compressed session exceeds the size limit.");
+    }
+
+    private static string SessionFolder(string filename) => Path.GetFileName(Path.GetDirectoryName(filename)) ?? filename;
 
     private bool Read(Stamp file)
     {
         // Commit the scan only after the snapshot has been read and validated.
-        if (file.Bytes > MaxCompressedBytes) throw new InvalidDataException("Compressed session exceeds the size limit.");
-        using var input = new FileStream(file.Path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete);
-        if (input.Length > MaxCompressedBytes) throw new InvalidDataException("Compressed session exceeds the size limit.");
+        using var input = OpenSnapshot(file);
         using var decoded = new DecompressionStream(input);
         decoded.SetParameter(ZSTD_dParameter.ZSTD_d_windowLogMax, 26);
         using var text = new StreamReader(decoded);
@@ -159,6 +231,11 @@ public sealed class HarnessReader(string root)
 
         // Rebuild from the file in one pass. The old sequence marker distinguishes replay from a new turn.
         Reset();
+        raw = raw with
+        {
+            SessionId = Text(h, "id") ?? SessionFolder(file.Path),
+            ProjectName = Text(h, "cwd")?.Split(['/', '\\'], StringSplitOptions.RemoveEmptyEntries).LastOrDefault()
+        };
         Cursor? last = null;
         try
         {
@@ -179,7 +256,7 @@ public sealed class HarnessReader(string root)
             if (file != Inspect(file.Path)) throw new IOException("Session was replaced while reading.");
             historical |= previousHadEvents && !matched;
             if (historical && !raw.Busy)
-                raw = raw with { Phase = PetPhase.Idle, Detail = "" };
+                raw = raw with { Phase = PetPhase.Idle, Detail = "", WaitKind = null };
             current = file;
             cursor = last;
             currentHasEvents = last != null;
@@ -208,15 +285,19 @@ public sealed class HarnessReader(string root)
     private PetStatus Display(DateTimeOffset now)
     {
         var age = now.ToUnixTimeMilliseconds() - raw.Activity;
-        if (raw.Phase == PetPhase.Idle || age > (raw.Busy ? 90_000 : 14_000))
-            return new PetStatus(PetPhase.Idle, model, raw.Activity);
-        return raw;
+        var hold = raw.Phase == PetPhase.Waiting ? 900_000 : raw.Busy ? 90_000 : 14_000;
+        if (raw.Phase == PetPhase.Idle || age > hold)
+            return raw with { Phase = PetPhase.Idle, Detail = model, WaitKind = null, Usage = usageSummary };
+        return raw with { Usage = usageSummary };
     }
 
     private void Reduce(string type, long time, JsonElement data)
     {
         switch (type)
         {
+            case "session/title":
+                if (Text(data, "title") is string title) raw = raw with { SessionTitle = title };
+                return;
             case "model/selection":
             case "request/context":
                 if (Text(data, "model") is { Length: > 0 } id)
@@ -230,19 +311,24 @@ public sealed class HarnessReader(string root)
                 break;
             case "step/start":
             case "assistant/attempt":
+                break;
             case "assistant/message":
+                if (Text(Child(Child(data, "message"), "source"), "model") is { Length: > 0 } sourceModel)
+                    model = sourceModel.Split('/')[^1];
                 break;
             case "tool/call":
                 var call = Text(data, "callId");
                 if (!string.IsNullOrEmpty(call))
                 {
                     tools.RemoveAll(tool => tool.Id == call);
-                    tools.Add((call, ToolLabel(Text(data, "name"))));
+                    var name = Text(data, "name");
+                    tools.Add((call, ToolLabel(name), string.Equals(name, "ask_user_question", StringComparison.OrdinalIgnoreCase)));
                 }
                 break;
             case "tool/result":
                 var result = Text(Child(data, "message"), "toolCallId");
                 if (result != null) tools.RemoveAll(tool => tool.Id == result);
+                else if (tools.Count > 0) tools.RemoveAt(0);
                 break;
             case "approval/asked":
                 approvals.Add(Text(data, "id") ?? "");
@@ -259,15 +345,17 @@ public sealed class HarnessReader(string root)
                 };
                 tools.Clear();
                 approvals.Clear();
-                raw = new PetStatus(phase, "", time);
+                raw = raw with { Phase = phase, Detail = "", Activity = time, WaitKind = null };
                 return;
             default:
                 return;
         }
 
-        raw = approvals.Count > 0 ? new PetStatus(PetPhase.Waiting, "", time)
-            : tools.Count > 0 ? new PetStatus(PetPhase.Working, tools[^1].Label, time)
-            : new PetStatus(PetPhase.Thinking, model, time);
+        HarnessWaitKind? wait = approvals.Count > 0 ? HarnessWaitKind.Approval
+            : tools.Any(tool => tool.IsQuestion) ? HarnessWaitKind.Question : null;
+        raw = wait is not null ? raw with { Phase = PetPhase.Waiting, Detail = "", Activity = time, WaitKind = wait }
+            : tools.Count > 0 ? raw with { Phase = PetPhase.Working, Detail = tools[^1].Label, Activity = time, WaitKind = null }
+            : raw with { Phase = PetPhase.Thinking, Detail = model, Activity = time, WaitKind = null };
     }
 
     private static string ToolLabel(string? name) => name?.ToLowerInvariant() switch
@@ -275,7 +363,7 @@ public sealed class HarnessReader(string root)
         "read" or "read_file" => "在翻文件",
         "write" or "write_file" => "在写字",
         "edit" or "edit_file" => "在改稿子",
-        "bash" or "exec_command" => "在跑命令",
+        "bash" or "exec_command" => "她在敲命令",
         "glob" => "在找文件",
         "grep" => "在查字句",
         "web_search" => "在查资料",

@@ -15,7 +15,7 @@ using Forms = System.Windows.Forms;
 
 namespace HuaYaoPet;
 
-internal sealed class PetWindow : Window
+internal sealed partial class PetWindow : Window
 {
     private sealed record Mode(string Id, string Name, string Default, string[] Titles);
     private static readonly Mode[] Modes =
@@ -34,12 +34,14 @@ internal sealed class PetWindow : Window
 
     private static readonly Brush Paper = Paint("#FFF8EE"), Ink = Paint("#382822"), BorderInk = Paint("#D8BEB2");
     private readonly Preferences prefs = Preferences.Load();
+    private readonly PetBilling billing = new();
     private readonly Image portrait = new() { Stretch = Stretch.Uniform, HorizontalAlignment = HorizontalAlignment.Center };
     private readonly TranslateTransform hop = new();
     private readonly TextBlock speech = new() { TextWrapping = TextWrapping.Wrap, TextAlignment = TextAlignment.Center, Foreground = Ink, FontSize = 14 };
     private readonly TextBlock statusLabel = new() { Foreground = Ink, FontSize = 12, TextTrimming = TextTrimming.CharacterEllipsis };
     private readonly Ellipse statusDot = new() { Width = 7, Height = 7, Margin = new Thickness(0, 0, 6, 0) };
     private readonly Canvas petals = new() { IsHitTestVisible = false, ClipToBounds = true };
+    private readonly StackPanel bubbleContents = new();
     private readonly Border speechPaper;
     private readonly DispatcherTimer speechTimer = new() { Interval = TimeSpan.FromSeconds(3.6) };
     private readonly DispatcherTimer idleTimer = new() { Interval = TimeSpan.FromSeconds(32) };
@@ -47,13 +49,17 @@ internal sealed class PetWindow : Window
     private readonly Forms.NotifyIcon tray;
     private readonly System.Drawing.Icon trayIcon;
     private readonly Dictionary<string, BitmapImage> thumbnails = new();
-    private static readonly string[] ThemeLyrics = LoadThemeLyrics();
+    private static readonly string[] ThemeLyrics = LoadLines("ThemeLyrics");
+    private static readonly string[] OperaScene = LoadLines("OperaScene");
     private HarnessReader? reader;
+    private readonly CompanionTaskReader companionReader = CompanionTaskReader.ForCurrentUser();
     private PetStatus current = new(PetPhase.Offline, "暂无会话");
     private bool reading;
     private Point? pressAt;
     private bool closing;
-    private string? pendingThemeLine;
+    private readonly Queue<string> pendingLyrics = new();
+    private bool manualLyrics;
+    private bool closeOnBubbleTap;
 
     private Mode ActiveMode => Modes.FirstOrDefault(mode => mode.Id == prefs.Mode) ?? Modes[0];
 
@@ -71,6 +77,10 @@ internal sealed class PetWindow : Window
         WindowStartupLocation = WindowStartupLocation.Manual;
         prefs.Mode = ActiveMode.Id;
         prefs.Zoom = Math.Clamp(prefs.Zoom, .70, 1.55);
+        InitializeInteraction();
+        billing.RoundCompleted = ShowTurnCost;
+        billing.BalanceWarning = SetBalanceWarning;
+        billing.BudgetWarning = ShowBudgetWarning;
 
         var stage = new Grid { Margin = new Thickness(10, 5, 10, 5) };
         stage.RowDefinitions.Add(new RowDefinition { Height = new GridLength(69) });
@@ -79,16 +89,27 @@ internal sealed class PetWindow : Window
         stage.Children.Add(petals);
         Grid.SetRowSpan(petals, 3);
         portrait.Cursor = Cursors.Hand;
-        portrait.RenderTransform = hop;
         portrait.MouseLeftButtonDown += BeginPress;
         portrait.MouseMove += MovePress;
         portrait.MouseLeftButtonUp += EndPress;
+        portrait.LostMouseCapture += (_, _) => pressAt = null;
         Place(stage, portrait, 1);
 
-        speechPaper = Card(speech, 12, new Thickness(10, 6, 10, 6));
+        ArrangeBubbleContents();
+        speechPaper = Card(new ScrollViewer { Content = bubbleContents, VerticalScrollBarVisibility = ScrollBarVisibility.Auto }, 12, new Thickness(10, 6, 10, 6));
         speechPaper.Margin = new Thickness(8, 4, 8, 3);
         speechPaper.VerticalAlignment = VerticalAlignment.Bottom;
-        speechPaper.IsHitTestVisible = false;
+        speechPaper.Cursor = Cursors.Hand;
+        speechPaper.MouseLeftButtonUp += (_, e) =>
+        {
+            if (closeOnBubbleTap)
+            {
+                speechTimer.Stop();
+                speechPaper.Visibility = Visibility.Collapsed;
+            }
+            else TapPet();
+            e.Handled = true;
+        };
         speechPaper.Visibility = Visibility.Collapsed;
         Place(stage, speechPaper, 0);
 
@@ -98,6 +119,8 @@ internal sealed class PetWindow : Window
         var status = Card(statusRow, 15, new Thickness(9, 4, 9, 4));
         status.HorizontalAlignment = HorizontalAlignment.Center;
         status.VerticalAlignment = VerticalAlignment.Center;
+        status.Cursor = Cursors.Hand;
+        status.MouseLeftButtonUp += (_, e) => { OpenTaskMenu(status); e.Handled = true; };
         Place(stage, status, 2);
         Content = stage;
         var context = new ContextMenu();
@@ -110,6 +133,8 @@ internal sealed class PetWindow : Window
         trayMenu.Items.Add("显示桌宠", null, (_, _) => Dispatcher.Invoke(ShowPet));
         trayMenu.Items.Add("隐藏桌宠", null, (_, _) => Dispatcher.Invoke(Hide));
         trayMenu.Items.Add("移到右下角", null, (_, _) => Dispatcher.Invoke(() => { ShowPet(); MoveToCorner(); }));
+        trayMenu.Items.Add("项目与任务", null, (_, _) => Dispatcher.Invoke(() => { ShowPet(); OpenTaskMenu(status); }));
+        trayMenu.Items.Add("用量与余额…", null, (_, _) => Dispatcher.Invoke(() => { ShowPet(); billing.Open(this); }));
         trayMenu.Items.Add("退出桌宠", null, (_, _) => Dispatcher.Invoke(Close));
         tray.ContextMenuStrip = trayMenu;
         tray.MouseClick += (_, args) => { if (args.Button == Forms.MouseButtons.Left) Dispatcher.Invoke(ShowPet); };
@@ -117,27 +142,33 @@ internal sealed class PetWindow : Window
         speechTimer.Tick += (_, _) =>
         {
             speechTimer.Stop();
-            var next = pendingThemeLine;
-            pendingThemeLine = null;
-            if (next != null && prefs.AutoChat && IsVisible && !current.Busy)
-                Say(next);
+            if ((prefs.AutoChat || manualLyrics) && IsVisible && !current.Busy && pendingLyrics.TryDequeue(out var next))
+                ShowLine(next);
             else
+            {
+                pendingLyrics.Clear();
+                manualLyrics = false;
                 speechPaper.Visibility = Visibility.Collapsed;
+            }
         };
         idleTimer.Tick += (_, _) => { if (prefs.AutoChat && IsVisible && !current.Busy) SayIdleLine(); };
         scanTimer.Tick += async (_, _) => await Scan();
+        IsVisibleChanged += (_, _) => ApplyStage();
         Loaded += (_, _) =>
         {
             SetPose();
             RestorePosition();
             RenderPetals();
             SetLink();
-            SaySomething(false);
+            billing.Initialize();
+            SaySomething();
             idleTimer.Start();
         };
         Closing += (_, _) =>
         {
             closing = true;
+            billing.Dispose();
+            foreach (var player in cuePlayers.Values) player.Close();
             RememberPosition();
             scanTimer.Stop();
             speechTimer.Stop();
@@ -152,11 +183,20 @@ internal sealed class PetWindow : Window
     private void Populate(ContextMenu menu)
     {
         menu.Items.Clear();
+        var tasks = new MenuItem { Header = "项目与任务" };
+        PopulateTasks(tasks.Items);
+        menu.Items.Add(tasks);
+        Add(menu, "用量与余额…", () => billing.Open(this));
+        menu.Items.Add(new Separator());
         foreach (var mode in Modes)
         {
             var entry = Add(menu, mode.Name, () =>
             {
-                pendingThemeLine = null;
+                if (prefs.Mode == mode.Id) return;
+                speechTimer.Stop();
+                pendingLyrics.Clear();
+                manualLyrics = false;
+                speechPaper.Visibility = Visibility.Collapsed;
                 prefs.Mode = mode.Id;
                 SetPose();
                 prefs.Save();
@@ -187,11 +227,15 @@ internal sealed class PetWindow : Window
             SetPose();
             prefs.Save();
         });
-        Add(menu, "说点什么", () => SaySomething(true));
+        Add(menu, "说点什么", TapPet);
+        Add(menu, "交互设置…", OpenInteractionSettings);
         menu.Items.Add(new Separator());
         Add(menu, "自动闲聊", () => { prefs.AutoChat = !prefs.AutoChat; prefs.Save(); }, prefs.AutoChat);
         Add(menu, "花瓣飘落", () => { prefs.Petals = !prefs.Petals; RenderPetals(); prefs.Save(); }, prefs.Petals);
         Add(menu, "联动 DeepSeek Harness", () => { prefs.Link = !prefs.Link; SetLink(); prefs.Save(); }, prefs.Link);
+        Add(menu, "联动 Codex", () => { prefs.CodexLink = !prefs.CodexLink; RefreshLinks(); prefs.Save(); }, prefs.CodexLink);
+        Add(menu, "联动 WorkBuddy", () => { prefs.WorkBuddyLink = !prefs.WorkBuddyLink; RefreshLinks(); prefs.Save(); }, prefs.WorkBuddyLink);
+        AddAdditionalLinks(menu);
         Add(menu, "始终置顶", () => { prefs.Top = Topmost = !prefs.Top; prefs.Save(); }, prefs.Top);
         menu.Items.Add(new Separator());
         Add(menu, "放大", () => ResizePet(prefs.Zoom + .12));
@@ -241,7 +285,7 @@ internal sealed class PetWindow : Window
 
     private void SetPose()
     {
-        portrait.Source = LoadImage(Selected(ActiveMode), 520);
+        ApplyStage();
         ResizePet(prefs.Zoom, remember: false);
     }
 
@@ -254,41 +298,11 @@ internal sealed class PetWindow : Window
         Height = 104 + (ActiveMode.Id == "duo" ? 180 : 161) * prefs.Zoom;
         if (center.HasValue) Left = center.Value - Width / 2;
         if (bottom.HasValue) Top = bottom.Value - Height;
-        if (remember) RememberPosition();
-    }
-
-    private void MoveToCorner()
-    {
-        var screen = SystemParameters.WorkArea;
-        Left = screen.Right - Width - 22;
-        Top = screen.Bottom - Height - 18;
-        RememberPosition();
-    }
-
-    private void RestorePosition()
-    {
-        if (prefs.Left is double left && prefs.TopPosition is double top &&
-            left >= SystemParameters.VirtualScreenLeft - Width / 2 &&
-            left < SystemParameters.VirtualScreenLeft + SystemParameters.VirtualScreenWidth - 30 &&
-            top >= SystemParameters.VirtualScreenTop && top < SystemParameters.VirtualScreenTop + SystemParameters.VirtualScreenHeight - 65)
+        if (remember)
         {
-            Left = left;
-            Top = top;
+            FitToMonitor(snap: false);
+            RememberPosition();
         }
-        else
-        {
-            MoveToCorner();
-        }
-    }
-
-    private void RememberPosition()
-    {
-        if (double.IsFinite(Left) && double.IsFinite(Top))
-        {
-            prefs.Left = Left;
-            prefs.TopPosition = Top;
-        }
-        prefs.Save();
     }
 
     private void ShowPet()
@@ -311,10 +325,15 @@ internal sealed class PetWindow : Window
         portrait.ReleaseMouseCapture();
         if (Mouse.LeftButton == MouseButtonState.Pressed)
         {
+            if (SystemParameters.ClientAreaAnimation) dragTilt.Angle = 1.3;
             try { DragMove(); }
             catch (InvalidOperationException) when (Mouse.LeftButton != MouseButtonState.Pressed) { }
+            finally { dragTilt.Angle = 0; }
         }
+        FitToMonitor(snap: true);
         RememberPosition();
+        AnimateResponse(landing: true);
+        PlayCue(PetCue.Land);
     }
 
     private void EndPress(object sender, MouseButtonEventArgs e)
@@ -322,45 +341,62 @@ internal sealed class PetWindow : Window
         if (!pressAt.HasValue) return;
         pressAt = null;
         portrait.ReleaseMouseCapture();
-        SaySomething(true);
+        TapPet();
         e.Handled = true;
     }
 
-    private void SaySomething(bool jump)
+    private void TapPet()
     {
-        var options = Lines[ActiveMode.Id].Where(line => line != speech.Text).ToArray();
-        Say(options[Random.Shared.Next(options.Length)]);
-        if (jump && SystemParameters.ClientAreaAnimation)
+        AnimateResponse();
+        PlayCue(PetCue.Tap);
+        billing.RefreshFromPet();
+        if (!ShowCustomBubble(BubbleEvent.Tap))
         {
-            var motion = new DoubleAnimationUsingKeyFrames();
-            motion.KeyFrames.Add(new EasingDoubleKeyFrame(-10, KeyTime.FromTimeSpan(TimeSpan.FromMilliseconds(160))));
-            motion.KeyFrames.Add(new EasingDoubleKeyFrame(0, KeyTime.FromTimeSpan(TimeSpan.FromMilliseconds(345))));
-            hop.BeginAnimation(TranslateTransform.YProperty, motion);
+            if (current.Busy) SaySomething();
+            else SayIdleLine(manual: true);
         }
     }
 
-    private void SayIdleLine()
+    private void SaySomething()
+    {
+        var options = Lines[ActiveMode.Id].Where(line => line != speech.Text).ToArray();
+        Say(options[Random.Shared.Next(options.Length)]);
+    }
+
+    private void SayIdleLine(bool manual = false)
     {
         if (ThemeLyrics.Length < 2 || Random.Shared.Next(4) != 0)
         {
-            SaySomething(false);
+            if (manual || !ShowCustomBubble(BubbleEvent.Idle)) SaySomething();
             return;
         }
         if (ActiveMode.Id == "duo")
         {
-            var couplet = Random.Shared.Next(ThemeLyrics.Length / 2) * 2;
-            Say($"花旦 · {ThemeLyrics[couplet]}");
-            pendingThemeLine = $"小生 · {ThemeLyrics[couplet + 1]}";
+            var coupletCount = ThemeLyrics.Length / 2;
+            var choice = Random.Shared.Next(coupletCount + (OperaScene.Length > 0 ? 1 : 0));
+            if (choice == coupletCount)
+            {
+                Say(OperaScene[0]);
+                foreach (var line in OperaScene.Skip(1))
+                    pendingLyrics.Enqueue(line);
+            }
+            else
+            {
+                var couplet = choice * 2;
+                Say($"花旦 · {ThemeLyrics[couplet]}");
+                pendingLyrics.Enqueue($"小生 · {ThemeLyrics[couplet + 1]}");
+            }
         }
         else
         {
             Say(ThemeLyrics[Random.Shared.Next(ThemeLyrics.Length)]);
         }
+        manualLyrics = manual;
     }
 
-    private static string[] LoadThemeLyrics()
+    private static string[] LoadLines(string name)
     {
-        using var resource = typeof(PetWindow).Assembly.GetManifestResourceStream("HuaYaoPet.ThemeLyrics.txt");
+        using var resource = typeof(PetWindow).Assembly.GetManifestResourceStream($"HuaYaoPet.{name}.txt");
         if (resource == null) return [];
         using var reader = new StreamReader(resource);
         return reader.ReadToEnd().Split(['\r', '\n'], StringSplitOptions.RemoveEmptyEntries);
@@ -368,11 +404,26 @@ internal sealed class PetWindow : Window
 
     private void Say(string line)
     {
-        pendingThemeLine = null;
+        pendingLyrics.Clear();
+        manualLyrics = false;
+        ShowLine(line);
+    }
+
+    private void ShowLine(string line, BitmapImage? picture = null, double seconds = 3.6, bool dismissOnClick = false, Uri? link = null)
+    {
         speech.Text = line;
+        bubblePicture.Source = picture;
+        bubblePicture.Visibility = picture == null ? Visibility.Collapsed : Visibility.Visible;
+        bubbleLink = link;
+        bubbleLinkButton.Visibility = link is null ? Visibility.Collapsed : Visibility.Visible;
         speechPaper.Visibility = Visibility.Visible;
         speechTimer.Stop();
-        speechTimer.Start();
+        closeOnBubbleTap = dismissOnClick || seconds == 0;
+        if (seconds > 0)
+        {
+            speechTimer.Interval = TimeSpan.FromSeconds(seconds);
+            speechTimer.Start();
+        }
         idleTimer.Stop();
         idleTimer.Start();
     }
@@ -399,19 +450,43 @@ internal sealed class PetWindow : Window
     private void SetLink()
     {
         reader = prefs.Link ? HarnessReader.ForCurrentUser() : null;
-        scanTimer.Stop();
-        SetStatus(new PetStatus(PetPhase.Offline, prefs.Link ? "正在查找会话" : "联动已关闭"));
-        if (reader != null) scanTimer.Start();
+        harnessStatus = null;
+        RefreshLinks();
+    }
+
+    private void RefreshLinks()
+    {
+        if (AnyLinkEnabled) scanTimer.Start();
+        else scanTimer.Stop();
+        PresentTasks(notify: false);
     }
 
     private async Task Scan()
     {
-        if (reading || reader is not { } active || closing) return;
+        if (reading || closing) return;
+        var active = reader;
+        var codex = prefs.CodexLink;
+        var workBuddy = prefs.WorkBuddyLink;
+        var trae = prefs.TraeLink;
+        var antigravity = prefs.AntigravityLink;
+        var doubao = prefs.DoubaoLink ? doubaoReader : null;
         reading = true;
         try
         {
-            var status = await Task.Run(() => active.Refresh(DateTimeOffset.UtcNow));
-            if (!closing && ReferenceEquals(active, reader)) SetStatus(status);
+            var now = DateTimeOffset.UtcNow;
+            var result = await Task.Run(() =>
+            {
+                var tasks = companionReader.Refresh(now, codex, workBuddy).ToList();
+                if (trae) tasks.AddRange(hooks.Read("TRAE", now));
+                if (antigravity) tasks.AddRange(hooks.Read("Antigravity", now));
+                if (doubao?.Refresh(now) is { } chat) tasks.Add(chat);
+                return (Harness: active?.Refresh(now), Tasks: tasks);
+            });
+            if (closing) return;
+            companionTasks = result.Tasks;
+            if (ReferenceEquals(active, reader)) harnessStatus = result.Harness;
+            PresentTasks(notify: true);
+            if (prefs.Link) billing.Observe(harnessStatus?.Usage);
         }
         finally
         {
@@ -419,13 +494,10 @@ internal sealed class PetWindow : Window
         }
     }
 
-    private void SetStatus(PetStatus status)
+    private void UpdateStatusDisplay(string label, PetPhase phase)
     {
-        var previous = current;
-        current = status;
-        if (status.Busy) pendingThemeLine = null;
-        statusLabel.Text = status.Label;
-        statusDot.Fill = Paint(status.Phase switch
+        statusLabel.Text = label;
+        statusDot.Fill = Paint(phase switch
         {
             PetPhase.Idle => "#497D69",
             PetPhase.Thinking or PetPhase.Waiting => "#A77429",
@@ -433,12 +505,8 @@ internal sealed class PetWindow : Window
             PetPhase.Done => "#32834E",
             _ => "#887E75"
         });
-        if (tray != null) tray.Text = status.Label.Length <= 59 ? $"花妖 · {status.Label}" : "花妖桌宠";
-        if (!IsVisible || previous.Phase == status.Phase && previous.Activity == status.Activity) return;
-        if (status.Phase == PetPhase.Waiting && previous.Phase != PetPhase.Waiting)
-            Say("那边等你点头呢，回 Harness 看一眼罢。");
-        if (status.Phase == PetPhase.Done && (previous.Phase != PetPhase.Done || previous.Activity != status.Activity))
-            Say("这一轮忙完了，喝口茶罢。");
+        if (tray != null) tray.Text = label.Length <= 59 ? $"花妖 · {label}" : "花妖桌宠";
+        ApplyStage();
     }
 
     private static void Place(Grid target, UIElement item, int row)

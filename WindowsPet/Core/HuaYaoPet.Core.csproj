@@ -6,5 +6,6 @@
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="ZstdSharp.Port" Version="0.8.8" />
+    <EmbeddedResource Include="../../Resources/HarnessPricing.json" LogicalName="HuaYaoPet.HarnessPricing.json" />
   </ItemGroup>
 </Project>

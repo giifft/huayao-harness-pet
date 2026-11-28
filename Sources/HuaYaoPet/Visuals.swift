@@ -138,9 +138,13 @@ final class PetalView: NSView {
 final class BubbleView: NSView {
     private let label = NSTextField(labelWithString: "")
     private let nameLabel = NSTextField(labelWithString: "")
+    private let artwork = NSImageView()
+    private let linkLabel = NSTextField(labelWithString: "打开链接 ↗")
     private var accent: NSColor = Palette.cinnabar
 
     var onHit: (() -> Void)?
+    var imageAboveText = false { didSet { needsLayout = true } }
+    var link: URL? { didSet { linkLabel.isHidden = link == nil; needsLayout = true } }
 
     override init(frame: NSRect) {
         super.init(frame: frame)
@@ -164,6 +168,13 @@ final class BubbleView: NSView {
         label.cell?.wraps = true
         label.cell?.isScrollable = false
         addSubview(label)
+        artwork.imageScaling = .scaleProportionallyDown
+        artwork.isHidden = true
+        addSubview(artwork)
+        linkLabel.isHidden = true
+        linkLabel.textColor = Palette.jade
+        linkLabel.font = Fonts.ui(11, .medium)
+        addSubview(linkLabel)
 
         alphaValue = 0
     }
@@ -173,6 +184,15 @@ final class BubbleView: NSView {
     var text: String {
         get { label.stringValue }
         set { label.stringValue = newValue; needsLayout = true }
+    }
+
+    var image: NSImage? {
+        get { artwork.image }
+        set {
+            artwork.image = newValue
+            artwork.isHidden = newValue == nil
+            needsLayout = true
+        }
     }
 
     var speaker: String {
@@ -192,25 +212,33 @@ final class BubbleView: NSView {
         nameLabel.frame = NSRect(x: padX, y: bounds.height - padTop - nameH,
                                  width: bounds.width - padX * 2, height: nameH)
         let textW = bounds.width - padX * 2
-        let textH = bounds.height - BubbleLayout.totalVerticalPadding
+        let imageH = image == nil ? 0 : BubbleLayout.imageHeight + 4
+        let linkH: CGFloat = link == nil ? 0 : 19
+        let textH = max(bounds.height - BubbleLayout.totalVerticalPadding - imageH - linkH, 16)
+        let bottom = BubbleLayout.bottomPad + linkH
+        linkLabel.frame = NSRect(x: padX, y: BubbleLayout.bottomPad, width: textW, height: linkH)
+        let imageY = bottom + (imageAboveText ? textH + 4 : 0)
+        artwork.frame = NSRect(x: padX, y: imageY,
+                               width: textW, height: imageH - (imageH > 0 ? 4 : 0))
         // 关键：测量与渲染使用完全相同的宽度
         label.preferredMaxLayoutWidth = textW
-        label.frame = NSRect(x: padX, y: BubbleLayout.bottomPad,
-                             width: textW, height: max(textH, 16))
+        label.frame = NSRect(x: padX, y: bottom + (imageAboveText ? 0 : imageH),
+                             width: textW, height: textH)
     }
 
     /// 依据文字计算气泡尺寸。
     /// 关键：必须用一个「与渲染完全相同的 NSTextField」来测量。
     /// 之前用 CoreText 单独算高度，但 NSTextField 的 cell 有内边距、换行更保守，
     /// 同一宽度下它比 CoreText 多换一行，导致气泡高度不足、末尾文字被裁掉。
-    static func measure(text: String, speaker: String, maxTextWidth: CGFloat = 246) -> NSSize {
+    static func measure(text: String, speaker: String, image: NSImage? = nil,
+                        maxTextWidth: CGFloat = 246) -> NSSize {
         let font = BubbleLayout.font
         // 先按单行宽度估一个容器宽度（留出 cell 内边距余量）
         let needed = ceil(Self.singleLineWidth(text, font: font)) + 16
-        let textW = min(max(needed, 96), maxTextWidth)
+        let textW = min(max(needed, image == nil ? 96 : 125), maxTextWidth)
         let textH = Self.fieldHeight(text, width: textW, font: font)
         let w = textW + BubbleLayout.padX * 2
-        let h = textH + BubbleLayout.totalVerticalPadding
+        let h = textH + BubbleLayout.totalVerticalPadding + (image == nil ? 0 : BubbleLayout.imageHeight + 4)
         return NSSize(width: w, height: max(h, 58))
     }
 
@@ -284,12 +312,22 @@ final class BubbleView: NSView {
     }
 
     override func mouseDown(with event: NSEvent) {
-        onHit?()
+        let point = convert(event.locationInWindow, from: nil)
+        if let link, linkLabel.frame.contains(point) { NSWorkspace.shared.open(link) }
+        else { onHit?() }
     }
+
+    override func hitTest(_ point: NSPoint) -> NSView? {
+        guard alphaValue > 0.1, frame.contains(point) else { return nil }
+        return self
+    }
+
+    override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
 }
 
 /// 气泡排版常量：measure 与 layout 共享，避免两处数值不一致
 enum BubbleLayout {
+    static let imageHeight: CGFloat = 55
     static let padX: CGFloat = 14
     static let padTop: CGFloat = 9
     static let nameH: CGFloat = 14

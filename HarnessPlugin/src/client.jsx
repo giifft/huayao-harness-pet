@@ -1,6 +1,7 @@
-import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react'
 import portraits from './portraits.generated.json'
 import themeLyricsText from '../../Resources/ThemeLyrics.txt'
+import operaSceneText from '../../Resources/OperaScene.txt'
 import { createActivitySource, labels, presentation, selectMainSession } from './session.js'
 import { CompanionPanel } from './companion-panel.jsx'
 import { dayKey, normalizeProgress, recordProgress } from './companion.js'
@@ -32,6 +33,12 @@ const allPoses = Object.values(portraits).flat()
 const clamp = value => Math.max(0, Math.min(1, value))
 const homePosition = { x: 1, y: 1 }
 const themeLyrics = themeLyricsText.trim().split(/\r?\n/).filter(Boolean)
+const themeDuets = []
+for (let index = 0; index + 1 < themeLyrics.length; index += 2) {
+  themeDuets.push([`花旦 · ${themeLyrics[index]}`, `小生 · ${themeLyrics[index + 1]}`])
+}
+const operaScene = operaSceneText.trim().split(/\r?\n/).filter(Boolean)
+const duoLyrics = operaScene.length ? [...themeDuets, operaScene] : themeDuets
 const greetings = {
   duo: ['今日台子搭好了，你且坐。', '你看，水袖一拂，花就落了。', '这回的身段，可合你的眼？'],
   hua: ['且坐片刻，容我理一理水袖。', '这一袖风，替你把花吹过来。', '看官，你瞧见刚才落的花了吗？'],
@@ -140,6 +147,7 @@ function Pet({ useSessions, useSessionStatus, sessionBinding }) {
   const drag = useRef(null)
   const suppressClick = useRef(false)
   const speechTimer = useRef()
+  const playingDuet = useRef(false)
   const importInput = useRef(null)
   const [openedAt] = useState(Date.now)
   const heardTurns = useRef(new Set())
@@ -181,6 +189,28 @@ function Pet({ useSessions, useSessionStatus, sessionBinding }) {
     }
   }, [])
 
+  const playLines = useCallback((lines) => {
+    clearTimeout(speechTimer.current)
+    playingDuet.current = lines.length > 1
+    function showLine(index) {
+      if (index === lines.length || document.hidden) {
+        playingDuet.current = false
+        setSpeech('')
+        return
+      }
+      setSpeech(lines[index])
+      speechTimer.current = setTimeout(() => showLine(index + 1), 3600)
+    }
+    showLine(0)
+  }, [])
+
+  useEffect(() => () => {
+    if (!playingDuet.current) return
+    clearTimeout(speechTimer.current)
+    playingDuet.current = false
+    setSpeech('')
+  }, [busy, prefs.collapsed, prefs.hidden, prefs.mode, prefs.idleTalk])
+
   useEffect(() => {
     if (busy || prefs.collapsed || prefs.hidden || panel || moving || (!prefs.idleTalk && !prefs.roam)) return
     const roamTimer = prefs.roam ? setInterval(() => {
@@ -190,34 +220,41 @@ function Pet({ useSessions, useSessionStatus, sessionBinding }) {
     }, 45_000) : undefined
     const talkTimer = prefs.idleTalk ? setInterval(() => {
       const hour = new Date().getHours()
-      if (document.hidden || hour < 6 || hour >= 23) return
-      const lines = greetings[prefs.mode]
-      setSpeech(lines[Math.floor(Math.random() * lines.length)])
-      clearTimeout(speechTimer.current)
-      speechTimer.current = setTimeout(() => setSpeech(''), 3600)
+      if (document.hidden || hour < 6 || hour >= 23 || playingDuet.current) return
+      const useLyrics = Math.random() < 0.25
+      if (prefs.mode === 'duo' && duoLyrics.length && useLyrics) {
+        playLines(duoLyrics[Math.floor(Math.random() * duoLyrics.length)])
+      } else {
+        const choices = prefs.mode !== 'duo' && useLyrics && themeLyrics.length ? themeLyrics : greetings[prefs.mode]
+        playLines([choices[Math.floor(Math.random() * choices.length)]])
+      }
     }, 5 * 60_000) : undefined
     return () => {
       clearInterval(roamTimer)
       clearInterval(talkTimer)
     }
-  }, [busy, moving, panel, prefs.collapsed, prefs.hidden, prefs.idleTalk, prefs.mode, prefs.roam])
+  }, [busy, moving, panel, playLines, prefs.collapsed, prefs.hidden, prefs.idleTalk, prefs.mode, prefs.roam])
 
   function setPreference(key, value) {
     setPrefs(previous => ({ ...previous, [key]: value }))
   }
 
   function tell(line) {
-    setSpeech(line)
+    playLines([line])
     setHop(value => value + 1)
-    clearTimeout(speechTimer.current)
-    speechTimer.current = setTimeout(() => setSpeech(''), 3600)
   }
 
   function speak(event) {
     if (event.detail > 0 && suppressClick.current) return
     record('pat')
     if (busy) return
-    const lines = themeLyrics.length && Math.random() < 0.25 ? themeLyrics : greetings[prefs.mode]
+    const useLyrics = Math.random() < 0.25
+    if (prefs.mode === 'duo' && useLyrics && duoLyrics.length) {
+      playLines(duoLyrics[Math.floor(Math.random() * duoLyrics.length)])
+      setHop(value => value + 1)
+      return
+    }
+    const lines = prefs.mode !== 'duo' && useLyrics && themeLyrics.length ? themeLyrics : greetings[prefs.mode]
     const choices = lines.filter(line => line !== speech)
     tell(choices[Math.floor(Math.random() * choices.length)] ?? lines[0])
   }

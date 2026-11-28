@@ -105,6 +105,11 @@ enum Prefs {
         set { d.set(newValue, forKey: "autoChat") }
     }
 
+    static var activityClearedAt: Date? {
+        get { d.object(forKey: "activityClearedAt") as? Date }
+        set { d.set(newValue, forKey: "activityClearedAt") }
+    }
+
     static var standardLinkedPlatforms: Set<AgentPlatform> {
         Set(AgentPlatform.allCases).subtracting([.doubao])
     }

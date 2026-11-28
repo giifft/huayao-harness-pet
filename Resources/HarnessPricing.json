@@ -1,0 +1,49 @@
+{
+  "verifiedOn": "2026-11-27",
+  "currency": "CNY",
+  "source": "https://api-docs.deepseek.com/zh-cn/quick_start/pricing",
+  "historicalSources": [
+    "https://api-docs.deepseek.com/zh-cn/news/news260813/",
+    "https://api-docs.deepseek.com/zh-cn/news/news260910/",
+    "https://github.com/SorenLorn/dsh-onepiece-balance-widget/blob/09c35ad/lib/index.js"
+  ],
+  "holidaySources": [
+    "https://www.gov.cn/zhengce/zhengceku/202511/content_7047091.htm",
+    "https://www.gov.cn/zhengce/content/202611/content_7085101.htm"
+  ],
+  "calendarThrough": "2027-12-31",
+  "weekendOffPeakFrom": "2026-08-23",
+  "holidayOffPeakFrom": "2026-09-19",
+  "peakHours": [[9, 12], [14, 18]],
+  "holidayRanges": [
+    ["2026-01-01", "2026-01-03"], ["2026-02-15", "2026-02-23"],
+    ["2026-04-04", "2026-04-06"], ["2026-05-01", "2026-05-05"],
+    ["2026-06-19", "2026-06-21"], ["2026-09-25", "2026-09-27"],
+    ["2026-10-01", "2026-10-07"],
+    ["2027-01-01", "2027-01-03"], ["2027-02-05", "2027-02-13"],
+    ["2027-04-03", "2027-04-05"], ["2027-05-01", "2027-05-05"],
+    ["2027-06-09", "2027-06-09"], ["2027-09-15", "2027-09-15"],
+    ["2027-10-01", "2027-10-07"]
+  ],
+  "providers": ["deepseek", "deepseek-account"],
+  "tariffs": [
+    {
+      "from": "2026-08-17T00:00:00+08:00",
+      "models": ["deepseek-v4-flash", "deepseek-v4-flash-vision-exp"],
+      "offPeak": [0.05, 1.5, 4.5],
+      "peak": [0.10, 3, 9]
+    },
+    {
+      "from": "2026-08-17T00:00:00+08:00",
+      "models": ["deepseek-v4-pro", "deepseek-v4-pro-0813"],
+      "offPeak": [0.15, 4.5, 13.5],
+      "peak": [0.30, 9, 27]
+    },
+    {
+      "from": "2026-09-10T12:00:00+08:00",
+      "models": ["deepseek-flash", "deepseek-v4-flash", "deepseek-v4-flash-vision-exp", "deepseek-v4.1-flash", "deepseek-v4.1-flash-1017"],
+      "offPeak": [0.02, 1, 4],
+      "peak": [0.04, 2, 8]
+    }
+  ]
+}

@@ -7,5 +7,6 @@
   </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="../Core/HuaYaoPet.Core.csproj" />
+    <None Include="../../Tests/Fixtures/HarnessUsage.json" Link="HarnessUsage.json" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 </Project>

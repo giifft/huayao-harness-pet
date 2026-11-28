@@ -4,8 +4,19 @@ on:
     branches: [main]
     paths:
       - 'WindowsPet/**'
-      - 'Resources/Pets/**'
+      - 'Resources/**'
+      - 'Tests/Fixtures/HarnessUsage.json'
       - '.github/workflows/windows-pet.yml'
+      - 'LICENSE'
+      - 'NOTICE-ARTWORK.zh-CN.txt'
+  pull_request:
+    paths:
+      - 'WindowsPet/**'
+      - 'Resources/**'
+      - 'Tests/Fixtures/HarnessUsage.json'
+      - '.github/workflows/windows-pet.yml'
+      - 'LICENSE'
+      - 'NOTICE-ARTWORK.zh-CN.txt'
   workflow_dispatch:
     inputs:
       release_tag:
@@ -26,7 +37,7 @@ jobs:
       - uses: actions/setup-dotnet@v4
         with:
           dotnet-version: '10.0.x'
-      - name: Exercise Harness state reader
+      - name: Exercise Harness readers and companion hooks
         run: dotnet run --project WindowsPet/ReaderSmoke -c Release
       - name: Build self-contained Windows app
         run: dotnet publish WindowsPet/Desktop -c Release -r win-x64 --self-contained true -o pet-win-x64
@@ -35,6 +46,11 @@ jobs:
         run: |
           $ErrorActionPreference = 'Stop'
           $out = (Resolve-Path "pet-win-x64").Path
+          $notices = @('LICENSE-CODE.txt', 'NOTICE-ARTWORK.zh-CN.txt', 'ZstdSharp-LICENSE.txt', 'DotNet-LICENSE.txt', 'DotNet-THIRD-PARTY-NOTICES.txt', 'DotNet-WindowsDesktop-LICENSE.txt')
+          $sounds = @('tap', 'land', 'cost', 'question', 'approval') | ForEach-Object { "PetSounds/$_.wav" }
+          foreach ($file in ($notices + $sounds)) {
+            if (-not (Test-Path (Join-Path $out $file) -PathType Leaf)) { throw "Missing release file $file." }
+          }
           foreach ($group in @(@{ Prefix = 'duo'; Count = 21 }, @{ Prefix = 'hua'; Count = 13 }, @{ Prefix = 'sheng'; Count = 4 })) {
             $portraits = Get-ChildItem "$out/Pets" -File -Filter "$($group.Prefix)_*.png"
             if ($portraits.Count -ne $group.Count) { throw "Expected $($group.Count) $($group.Prefix) portraits." }

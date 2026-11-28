@@ -1,0 +1,22 @@
+{"now": "2026-11-27T10:05:00+08:00",
+  "main": [
+    {"type": "session", "id": "main", "cwd": "/demo/花妖", "delegationDepth": 0},
+    {"type": "assistant/message", "seq": 1, "time": 1795708740000, "data": {"turn": 1, "usage": {"inputTokens": 500, "outputTokens": 10}, "message": {"id": "past", "source": {"provider": "deepseek-account", "model": "deepseek-flash"}}}},
+    {"type": "turn/end", "seq": 2, "time": 1795708740000, "data": {"turn": 1, "reason": {"kind": "completed"}}},
+    {"type": "assistant/message", "seq": 3, "time": 1795708740010, "data": {"turn": 2, "usage": {"inputTokens": 100, "outputTokens": 10}, "message": {"id": "cross-midnight", "source": {"provider": "deepseek-account", "model": "deepseek-flash"}}}},
+    {"type": "session/title", "seq": 4, "time": 1795744800000, "data": {"title": "测试任务"}},
+    {"type": "assistant/message", "seq": 5, "time": 1795744800000, "data": {"turn": 2, "usage": {"inputTokens": 2000, "cacheReadTokens": 1000, "outputTokens": 300, "reasoningTokens": 120}, "message": {"id": "used", "source": {"provider": "deepseek-account", "model": "deepseek-flash"}}}},
+    {"type": "assistant/message", "seq": 6, "time": 1795744800000, "data": {"turn": 2, "usage": {"inputTokens": 2000, "cacheReadTokens": 1000, "outputTokens": 300, "reasoningTokens": 120}, "message": {"id": "used", "source": {"provider": "deepseek-account", "model": "deepseek-flash"}}}},
+    {"type": "assistant/message", "seq": 7, "time": 1795744800000, "data": {"turn": 2, "usage": {"inputTokens": 1000, "outputTokens": 100}, "message": {"id": "used-second-step", "source": {"provider": "deepseek-account", "model": "deepseek-flash"}}}},
+    {"type": "turn/end", "seq": 8, "time": 1795744800000, "data": {"turn": 2, "reason": {"kind": "completed"}}},
+    {"type": "assistant/message", "seq": 9, "time": 1795744860000, "data": {"turn": 3, "usage": {"inputTokens": 40, "outputTokens": 20, "cacheWriteTokens": 1}, "message": {"id": "unknown", "source": {"provider": "third-party", "model": "vendor/deepseek-flash"}}}},
+    {"type": "turn/end", "seq": 10, "time": 1795744860000, "data": {"turn": 3, "reason": {"kind": "completed"}}},
+    {"type": "turn/start", "seq": 11, "time": 1795745100000, "data": {"turn": 4}},
+    {"type": "tool/call", "seq": 12, "time": 1795745100000, "data": {"turn": 4, "name": "ask_user_question", "callId": "question"}}
+  ],
+  "child": [
+    {"type": "session", "id": "child", "parentSession": "main", "delegationDepth": 1},
+    {"type": "assistant/message", "seq": 1, "time": 1795744800000, "data": {"turn": 1, "usage": {"inputTokens": 100, "outputTokens": 10}, "message": {"id": "delegate", "source": {"provider": "deepseek", "model": "deepseek-v4-pro"}}}},
+    {"type": "turn/end", "seq": 2, "time": 1795744800000, "data": {"turn": 1, "reason": {"kind": "completed"}}}
+  ]
+}

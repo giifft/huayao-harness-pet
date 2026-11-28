@@ -43,15 +43,20 @@ final class DSHSessionReader {
     }
 
     private let root: URL
+    private let pricing: HarnessPricing?
     private var currentFile: FileSnapshot?
     private var delegatedFiles: Set<URL> = []
     private var lastEvent: (sequence: Int, time: Date, type: String)?
     private var status = AgentStatus()
-    private var toolCalls: [(id: String, detail: String)] = []
+    private var toolCalls: [(id: String, detail: String, isQuestion: Bool)] = []
     private var approvals: Set<String> = []
+    private var usageFiles: [URL: (snapshot: FileSnapshot, rounds: [HarnessUsageRound])] = [:]
+    private var usageRetry: [URL: (snapshot: FileSnapshot, after: Date)] = [:]
+    private var usageSummary: HarnessUsageSummary?
 
-    init(root: URL) {
+    init(root: URL, pricing: HarnessPricing? = HarnessPricing.bundled) {
         self.root = root
+        self.pricing = pricing
     }
 
     func refresh(now: Date = Date()) -> AgentStatus {
@@ -66,6 +71,7 @@ final class DSHSessionReader {
             return $0.url.path < $1.url.path
         }
         delegatedFiles.formIntersection(files.map(\.url))
+        refreshUsage(files: files, now: now)
 
         for file in files where !delegatedFiles.contains(file.url) {
             if currentFile == file { return displayStatus(at: now) }
@@ -107,6 +113,10 @@ final class DSHSessionReader {
                 reset()
                 status.state = .idle
             }
+            status.sessionID = header["id"] as? String ?? file.url.deletingLastPathComponent().lastPathComponent
+            if let cwd = header["cwd"] as? String {
+                status.projectName = URL(fileURLWithPath: cwd).lastPathComponent
+            }
             var newest = replay ? nil : lastEvent
             for line in lines.dropFirst((cursor ?? 0) + 1) {
                 guard ProcessInfo.processInfo.systemUptime < deadline else {
@@ -141,6 +151,50 @@ final class DSHSessionReader {
         record(line).flatMap(Event.init)
     }
 
+    private func refreshUsage(files: [FileSnapshot], now: Date) {
+        // Cap per-poll work so a large archive does not stall the task monitor on startup.
+        let candidates = files.prefix(512)
+        let paths = Set(candidates.map(\.url))
+        usageFiles = usageFiles.filter { paths.contains($0.key) }
+        usageRetry = usageRetry.filter { paths.contains($0.key) }
+        let deadline = ProcessInfo.processInfo.systemUptime + 0.4
+        var budget = 4
+        for file in candidates where usageFiles[file.url]?.snapshot != file {
+            guard budget > 0, ProcessInfo.processInfo.systemUptime < deadline else { break }
+            if let retry = usageRetry[file.url], retry.snapshot == file, retry.after > now { continue }
+            budget -= 1
+            if let rounds = usageRounds(in: file) {
+                usageFiles[file.url] = (file, rounds)
+                usageRetry[file.url] = nil
+            } else {
+                usageRetry[file.url] = (file, now.addingTimeInterval(30))
+            }
+        }
+        let pending = candidates.count < files.count || candidates.contains { usageFiles[$0.url]?.snapshot != $0 }
+        // Newest copies win if the same session appears in more than one workspace.
+        let rounds = candidates.flatMap { usageFiles[$0.url]?.rounds ?? [] }
+        usageSummary = .make(rounds: rounds, now: now, pricing: pricing, pending: pending)
+    }
+
+    private func usageRounds(in file: FileSnapshot) -> [HarnessUsageRound]? {
+        guard let decoded = Self.decompress(file.url), FileSnapshot(file.url) == file else { return nil }
+        let lines = decoded.split(separator: 0x0A, maxSplits: 50_000)
+        guard lines.count <= 50_000, let first = lines.first,
+              let header = Self.record(first), header["type"] as? String == "session" else { return nil }
+        let id = header["id"] as? String ?? file.url.deletingLastPathComponent().path
+        var fold = HarnessUsageFold(sessionID: id, pricing: pricing)
+        for line in lines.dropFirst() {
+            let valid = autoreleasepool {
+                guard let object = Self.record(line) else { return false }
+                guard let event = Event(object) else { return true }
+                fold.accept(type: event.type, data: event.data, sequence: event.sequence, time: event.time)
+                return true
+            }
+            guard valid else { return nil }
+        }
+        return fold.rounds
+    }
+
     private func directories(in url: URL) -> [URL] {
         let entries = try? FileManager.default.contentsOfDirectory(at: url,
             includingPropertiesForKeys: [.isDirectoryKey], options: .skipsHiddenFiles)
@@ -156,16 +210,22 @@ final class DSHSessionReader {
     }
 
     private func offline(_ message: String) -> AgentStatus {
-        AgentStatus(connectionMessage: message)
+        AgentStatus(connectionMessage: message, harnessUsage: usageSummary)
     }
 
     private func displayStatus(at now: Date) -> AgentStatus {
-        status.expiring(at: now)
+        var snapshot = status.expiring(at: now)
+        snapshot.harnessUsage = usageSummary
+        if snapshot.state != .waiting { snapshot.waitKind = nil }
+        return snapshot
     }
 
     private func reduce(_ event: Event) {
         let data = event.data
         switch event.type {
+        case "session/title":
+            if let title = data["title"] as? String { status.sessionTitle = title }
+            return
         case "model/selection", "request/context":
             if let model = data["model"] as? String { status.modelName = model }
             return
@@ -183,9 +243,9 @@ final class DSHSessionReader {
         case "tool/call":
             let name = data["name"] as? String ?? ""
             let id = data["callId"] as? String ?? String(event.sequence)
-            let detail = Self.describeTool(name, args: data["arguments"] as? String ?? "")
+            let detail = Self.describeTool(name)
             toolCalls.removeAll { $0.id == id }
-            toolCalls.append((id, detail))
+            toolCalls.append((id, detail, name.lowercased() == "ask_user_question"))
             updateActiveState()
         case "tool/result":
             let message = data["message"] as? [String: Any]
@@ -211,6 +271,7 @@ final class DSHSessionReader {
             toolCalls.removeAll()
             approvals.removeAll()
             status.toolDetail = ""
+            status.waitKind = nil
         default:
             return
         }
@@ -219,7 +280,8 @@ final class DSHSessionReader {
 
     private func updateActiveState() {
         status.toolDetail = toolCalls.last?.detail ?? ""
-        if !approvals.isEmpty {
+        status.waitKind = !approvals.isEmpty ? .approval : toolCalls.contains(where: \.isQuestion) ? .question : nil
+        if status.waitKind != nil {
             status.state = .waiting
         } else {
             status.state = toolCalls.isEmpty ? .thinking : .working
@@ -263,15 +325,9 @@ final class DSHSessionReader {
         }
     }
 
-    private static func describeTool(_ name: String, args: String) -> String {
-        let a = args.lowercased()
+    private static func describeTool(_ name: String) -> String {
         switch name {
-        case "bash":
-            if a.contains("git ") { return "在翻 git 记录" }
-            if a.contains("npm") || a.contains("pnpm") || a.contains("yarn") { return "在装依赖" }
-            if a.contains("swiftc") || a.contains("xcodebuild") { return "在编译" }
-            if a.contains("python") { return "在跑脚本" }
-            if a.contains("curl") || a.contains("http") { return "在联网查资料" }
+        case "bash", "exec_command":
             return "在敲命令"
         case "read":      return "在翻文件"
         case "write":     return "在写字"

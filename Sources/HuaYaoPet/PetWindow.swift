@@ -1,5 +1,4 @@
 import AppKit
-import QuartzCore
 
 // MARK: - 透明置顶窗口
 
@@ -29,6 +28,10 @@ final class PetWindow: NSWindow {
 
 final class PetSceneView: NSView {
     var pose: PetPose? { didSet { needsDisplay = true } }
+    var feedbackPose: PetPose? { didSet { needsDisplay = true } }
+    var mirrored = false { didSet { needsDisplay = true } }
+    var activity: AgentState = .idle
+    var lowBalance = false
 
     // 显示参数
     var spriteHeight: CGFloat = 190          // 单个立绘的高度（点）
@@ -39,10 +42,8 @@ final class PetSceneView: NSView {
     private var dragOrigin: NSPoint?
     private var windowOrigin: NSPoint?
     private var didDrag = false
-    private var idleTimer: Timer?
-    private var breath: CGFloat = 0
-    private var hop: CGFloat = 0
     private var hopTimer: Timer?
+    private var hopOffset: CGFloat = 0
 
     var onClick: (() -> Void)?
     var onDragEnded: (() -> Void)?
@@ -58,11 +59,22 @@ final class PetSceneView: NSView {
         return NSSize(width: width, height: height)
     }
 
+    private var renderedPose: PetPose? { feedbackPose ?? pose }
+
     private var poseFrame: NSRect {
-        let size = poseSize
+        let footprint = poseSize
+        guard let drawn = renderedPose, footprint.width > 0, footprint.height > 0 else { return .zero }
+        let factor = min(footprint.width / drawn.pixelSize.width, footprint.height / drawn.pixelSize.height)
+        let size = drawn.pixelSize.scaled(by: factor)
         return NSRect(x: (bounds.width - size.width) / 2,
-                      y: statusSpace + sin(breath) * 2.2 + hop,
+                      y: statusSpace + hopOffset,
                       width: size.width, height: size.height)
+    }
+
+    private func poseTransform(_ frame: NSRect) -> CGAffineTransform {
+        let reflect: CGFloat = mirrored && pose?.kind != .duo ? -1 : 1
+        return CGAffineTransform(a: reflect, b: 0, c: 0, d: 1,
+                                 tx: frame.midX * (1 - reflect), ty: 0)
     }
 
     func desiredSize() -> NSSize {
@@ -79,7 +91,7 @@ final class PetSceneView: NSView {
         ctx.setShouldAntialias(true)
         ctx.interpolationQuality = .high
 
-        guard let pose else { return }
+        guard let pose = renderedPose else { return }
         let f = poseFrame
         // 地面阴影
         let shadowW = f.width * 0.62
@@ -100,46 +112,10 @@ final class PetSceneView: NSView {
         }
         ctx.restoreGState()
 
+        ctx.saveGState()
+        ctx.concatenate(poseTransform(f))
         ctx.draw(pose.cgImage, in: f)
-    }
-
-    // MARK: 动画
-
-    func startIdle() {
-        stopIdle()
-        let t = Timer(timeInterval: 1.0 / 30.0, repeats: true) { [weak self] _ in
-            guard let self else { return }
-            self.breath += 0.055
-            self.needsDisplay = true
-        }
-        RunLoop.main.add(t, forMode: .common)
-        idleTimer = t
-    }
-
-    func stopIdle() {
-        idleTimer?.invalidate()
-        idleTimer = nil
-    }
-
-    /// 开心地跳一下
-    func hopOnce() {
-        hopTimer?.invalidate()
-        var t: CGFloat = 0
-        let timer = Timer(timeInterval: 1.0 / 60.0, repeats: true) { [weak self] timer in
-            guard let self else { timer.invalidate(); return }
-            t += 0.06
-            if t >= 1 {
-                self.hop = 0
-                self.needsDisplay = true
-                timer.invalidate()
-                self.hopTimer = nil
-                return
-            }
-            self.hop = sin(t * .pi) * 10
-            self.needsDisplay = true
-        }
-        RunLoop.main.add(timer, forMode: .common)
-        hopTimer = timer
+        ctx.restoreGState()
     }
 
     // MARK: 命中测试（按像素透明度）
@@ -153,12 +129,34 @@ final class PetSceneView: NSView {
 
     private func containsOpaquePixel(at point: NSPoint) -> Bool {
         let frame = poseFrame
-        guard let pose, frame.contains(point) else { return false }
-        return pose.isOpaque(atNormalized: NSPoint(x: (point.x - frame.minX) / frame.width,
-                                                   y: (point.y - frame.minY) / frame.height))
+        guard let pose = renderedPose else { return false }
+        let imagePoint = point.applying(poseTransform(frame).inverted())
+        guard frame.contains(imagePoint) else { return false }
+        return pose.isOpaque(atNormalized: NSPoint(x: (imagePoint.x - frame.minX) / frame.width,
+                                                   y: (imagePoint.y - frame.minY) / frame.height))
     }
 
     // MARK: 拖拽与点击
+
+    private func hopOnClick() {
+        guard hopTimer == nil, !NSWorkspace.shared.accessibilityDisplayShouldReduceMotion else { return }
+        let startedAt = ProcessInfo.processInfo.systemUptime
+        let duration = 0.3
+        let timer = Timer(timeInterval: 1.0 / 60.0, repeats: true) { [weak self] timer in
+            guard let self else { timer.invalidate(); return }
+            let progress = (ProcessInfo.processInfo.systemUptime - startedAt) / duration
+            if progress >= 1 {
+                self.hopOffset = 0
+                self.hopTimer = nil
+                timer.invalidate()
+            } else {
+                self.hopOffset = CGFloat(5 * sin(.pi * progress))
+            }
+            self.needsDisplay = true
+        }
+        hopTimer = timer
+        RunLoop.main.add(timer, forMode: .common)
+    }
 
     override func mouseDown(with event: NSEvent) {
         didDrag = false
@@ -181,11 +179,15 @@ final class PetSceneView: NSView {
     override func mouseUp(with event: NSEvent) {
         defer { dragOrigin = nil; windowOrigin = nil }
         if didDrag {
+            didDrag = false
             onDragEnded?()
             return
         }
         let point = convert(event.locationInWindow, from: nil)
-        if containsOpaquePixel(at: point) { onClick?() }
+        if containsOpaquePixel(at: point) {
+            hopOnClick()
+            onClick?()
+        }
     }
 
     override func rightMouseDown(with event: NSEvent) {

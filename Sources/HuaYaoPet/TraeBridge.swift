@@ -15,6 +15,7 @@ final class TraeBridge {
     private struct Signal: Codable {
         let state: String
         let time: Date
+        let question: Bool?
     }
 
     private let bridge: URL
@@ -134,7 +135,7 @@ final class TraeBridge {
         if fm.fileExists(atPath: helper.path) { try fm.removeItem(at: helper) }
     }
 
-    func refresh(now: Date = Date()) -> AgentStatus {
+    func refresh(now: Date = Date(), after cutoff: Date? = nil) -> AgentStatus {
         if now.timeIntervalSince(lastConfigCheck) >= 5 {
             lastConfigCheck = now
             let hooks = (try? readConfig())?["hooks"] as? [String: Any] ?? [:]
@@ -154,8 +155,9 @@ final class TraeBridge {
                   let state = AgentState(rawValue: signal.state) else { continue }
             let status = AgentStatus(state: state,
                                      toolDetail: state == .working ? "在调用工具" : "",
-                                     lastActivity: signal.time)
-            statuses.append(status.expiring(at: now))
+                                     lastActivity: signal.time,
+                                     waitKind: signal.question == true ? .question : nil)
+            if status.isAfter(cutoff) { statuses.append(status.expiring(at: now)) }
         }
         if let status = preferredStatus(statuses) { return status }
         if hasReceivedSignal { return AgentStatus(state: .idle) }
@@ -197,7 +199,8 @@ final class TraeBridge {
             if previous.time > now { return }
             if previous.state == AgentState.done.rawValue, hook == .notification { return }
         }
-        let data = try JSONEncoder().encode(Signal(state: state.rawValue, time: now))
+        let question = (payload["notification_type"] as? String) == "ask_user_question"
+        let data = try JSONEncoder().encode(Signal(state: state.rawValue, time: now, question: question ? true : nil))
         try data.write(to: file, options: .atomic)
 
         // Remove old signal files only when a new session first reports in.
