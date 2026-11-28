@@ -21,7 +21,7 @@ final class PetalView: NSView {
     private var petals: [Petal] = []
     private var timer: Timer?
     private var last: CFTimeInterval = CACurrentMediaTime()
-    var intensity: Double = 0.5 { didSet { spawnIfNeeded() } }
+    weak var bubble: BubbleView?
     var isEnabled: Bool = true { didSet { isHidden = !isEnabled } }
 
     override init(frame: NSRect) {
@@ -57,10 +57,17 @@ final class PetalView: NSView {
         )
     }
 
-    private func spawnIfNeeded() {
-        let target = Int(10 + intensity * 26)
-        while petals.count < target { petals.append(makePetal(anywhere: false)) }
-        while petals.count > target { petals.removeLast() }
+    override func hitTest(_ point: NSPoint) -> NSView? { nil }
+
+    var drawingRegion: CGPath {
+        let path = CGMutablePath()
+        path.addRect(bounds)
+        if let bubble, bubble.alphaValue > 0.1 {
+            let exclusion = convert(bubble.bounds, from: bubble)
+                .insetBy(dx: -4, dy: -3).intersection(bounds)
+            if !exclusion.isEmpty { path.addRect(exclusion) }
+        }
+        return path
     }
 
     private func tick() {
@@ -88,6 +95,8 @@ final class PetalView: NSView {
         guard let ctx = NSGraphicsContext.current?.cgContext else { return }
         let w = bounds.width, h = bounds.height
         ctx.setShouldAntialias(true)
+        ctx.addPath(drawingRegion)
+        ctx.clip(using: .evenOdd)
 
         for p in petals {
             let cx = p.x * w
@@ -335,4 +344,19 @@ enum BubbleLayout {
     static let gapAfterName: CGFloat = 10
     static var font: NSFont { Fonts.kai(14) }
     static var totalVerticalPadding: CGFloat { padTop + nameH + gapAfterName + bottomPad }
+
+    static let portraitHeadroom: CGFloat = 132
+
+    static func frame(text: String, speaker: String, image: NSImage?, hasLink: Bool,
+                      portrait: NSRect, contentWidth: CGFloat) -> NSRect {
+        let maxTextWidth = max(80, min(210, contentWidth - 56))
+        let measured = BubbleView.measure(text: text, speaker: speaker, image: image,
+                                          maxTextWidth: maxTextWidth)
+        let height = measured.height + (hasLink ? 19 : 0)
+        // Preserve the original portrait-to-bubble composition while letting long lines grow upwards.
+        let gap = max(12, portraitHeadroom - height - 2)
+        return NSRect(x: (contentWidth - measured.width) / 2, y: portrait.maxY + gap,
+                      width: measured.width, height: height)
+    }
+
 }

@@ -7,9 +7,9 @@
 <p align="center">
   <a href="LICENSE"><img alt="代码许可 MIT" src="https://img.shields.io/badge/Code%20License-MIT-yellow"></a>
   <a href="NOTICE-ARTWORK.zh-CN.txt"><img alt="立绘不对外授权，禁止商用" src="https://img.shields.io/badge/Artwork-Promotion%20Only-8c4355"></a>
-  <a href="https://github.com/giifft/huayao-harness-pet/releases/tag/v1.3.1"><img alt="macOS 独立版 v1.3.1" src="https://img.shields.io/badge/macOS-v1.3.1-446d62"></a>
-  <a href="https://github.com/giifft/huayao-harness-pet/releases/tag/v1.3.1"><img alt="Windows 独立版 v1.1.1" src="https://img.shields.io/badge/Windows-v1.1.1-3575ad"></a>
-  <a href="https://github.com/giifft/huayao-harness-pet/releases/tag/v1.3.1"><img alt="Harness 插件 v1.2.1" src="https://img.shields.io/badge/Harness%20Plugin-v1.2.1-8c4355"></a>
+  <a href="https://github.com/giifft/huayao-harness-pet/releases/tag/v1.3.2"><img alt="macOS 独立版 v1.3.2" src="https://img.shields.io/badge/macOS-v1.3.2-446d62"></a>
+  <a href="https://github.com/giifft/huayao-harness-pet/releases/tag/v1.3.2"><img alt="Windows 独立版 v1.1.1" src="https://img.shields.io/badge/Windows-v1.1.1-3575ad"></a>
+  <a href="https://github.com/giifft/huayao-harness-pet/releases/tag/v1.3.2"><img alt="Harness 插件 v1.2.1" src="https://img.shields.io/badge/Harness%20Plugin-v1.2.1-8c4355"></a>
   <a href="https://github.com/giifft/huayao-harness-pet/actions/workflows/windows-pet.yml"><img alt="Windows 自动启动测试" src="https://github.com/giifft/huayao-harness-pet/actions/workflows/windows-pet.yml/badge.svg?branch=main"></a>
 </p>
 
@@ -56,9 +56,9 @@
 
 | 版本 | 系统或应用要求 | 下载 |
 | --- | --- | --- |
-| **Windows 独立版 v1.1.1** | Windows 10 22H2 或 Windows 11，x64 | [Windows ZIP](https://github.com/giifft/huayao-harness-pet/releases/download/v1.3.1/huayao-desktop-windows-x64.zip) |
-| **macOS 独立版 v1.3.1** | Apple 芯片，macOS 13 或更新 | [macOS ZIP](https://github.com/giifft/huayao-harness-pet/releases/download/v1.3.1/huayao-desktop-macos-arm64.zip) |
-| **Harness 插件 v1.2.1** | 支持安装第三方插件的 DeepSeek Harness | [插件 TGZ](https://github.com/giifft/huayao-harness-pet/releases/download/v1.3.1/huayao-harness-pet-1.2.1.tgz) |
+| **Windows 独立版 v1.1.1** | Windows 10 22H2 或 Windows 11，x64 | [Windows ZIP](https://github.com/giifft/huayao-harness-pet/releases/download/v1.3.2/huayao-desktop-windows-x64.zip) |
+| **macOS 独立版 v1.3.2** | Apple 芯片，macOS 13 或更新 | [macOS ZIP](https://github.com/giifft/huayao-harness-pet/releases/download/v1.3.2/huayao-desktop-macos-arm64.zip) |
+| **Harness 插件 v1.2.1** | 支持安装第三方插件的 DeepSeek Harness | [插件 TGZ](https://github.com/giifft/huayao-harness-pet/releases/download/v1.3.2/huayao-harness-pet-1.2.1.tgz) |
 
 1. **Windows**　完整解压 ZIP，打开 `HuaYaoPet-Windows-x64` 文件夹并双击 `HuaYaoPet.exe`。把 EXE 和同目录的文件一并保留。
 2. **macOS**　解压 ZIP，把「花妖桌宠.app」拖到「应用程序」后打开。顶部菜单栏的戏曲面具图标可以打开菜单。
@@ -112,7 +112,7 @@ macOS 版支持豆包桌面端联动，覆盖当前窗口里的普通对话。�
 
 macOS 版的 Antigravity 联动通过 [Google Hooks](https://antigravity.google/docs/hooks) 按会话显示工作区、工具类别和执行结果。首次使用请选「AI 联动 → 配置 Antigravity 联动」，然后在 Antigravity 中运行一项任务。花妖只在本机保存会话标识、目录名、时间和状态。移动桌宠应用后需要重新配置。可用同一菜单移除花妖的 Hooks。
 
-[当前版本 Release](https://github.com/giifft/huayao-harness-pet/releases/tag/v1.3.1) 提供 macOS v1.3.1、Windows v1.1.1 和 Harness 插件 v1.2.1。
+[当前版本 Release](https://github.com/giifft/huayao-harness-pet/releases/tag/v1.3.2) 提供 macOS v1.3.2、Windows v1.1.1 和 Harness 插件 v1.2.1。
 
 ## 代码许可与立绘使用
 

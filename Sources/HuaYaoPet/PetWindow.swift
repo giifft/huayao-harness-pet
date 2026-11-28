@@ -37,7 +37,6 @@ final class PetSceneView: NSView {
     var portraitSide: CGFloat = 300
     private let statusSpace: CGFloat = 30
     // 顶部留给气泡：需容纳 3 行中文（约 20pt/行）+ 名字 + 内边距 + 尖角
-    private let bubbleSpace: CGFloat = 132
 
     private var dragOrigin: NSPoint?
     private var windowOrigin: NSPoint?
@@ -54,10 +53,29 @@ final class PetSceneView: NSView {
 
     private var renderedPose: PetPose? { feedbackPose ?? pose }
 
-    var poseFrame: NSRect {
+    private var restingPoseFrame: NSRect {
         NSRect(x: (bounds.width - portraitSide) / 2,
-               y: statusSpace + hopOffset,
-               width: portraitSide, height: portraitSide)
+               y: statusSpace, width: portraitSide, height: portraitSide)
+    }
+
+    var poseFrame: NSRect { restingPoseFrame.offsetBy(dx: 0, dy: hopOffset) }
+
+    var visiblePortraitFrame: NSRect? {
+        guard let pose = renderedPose else { return nil }
+        let frame = restingPoseFrame
+        let visible = pose.visibleBounds
+        let rect = NSRect(x: frame.minX + visible.minX * frame.width,
+                          y: frame.minY + visible.minY * frame.height,
+                          width: visible.width * frame.width, height: visible.height * frame.height)
+        return rect.applying(poseTransform(frame))
+    }
+
+    var petalFrame: NSRect {
+        guard let visible = visiblePortraitFrame else { return .zero }
+        let width = min(bounds.width, max(240, visible.width + 28))
+        let top = min(bounds.maxY, visible.maxY + BubbleLayout.portraitHeadroom)
+        return NSRect(x: visible.midX - width / 2, y: statusSpace,
+                      width: width, height: top - statusSpace).intersection(bounds)
     }
 
     private var portraitBaseline: CGFloat {
@@ -71,7 +89,7 @@ final class PetSceneView: NSView {
     }
 
     func desiredSize() -> NSSize {
-        NSSize(width: max(portraitSide + 28, 240), height: portraitSide + bubbleSpace + statusSpace)
+        NSSize(width: max(portraitSide + 28, 240), height: portraitSide + BubbleLayout.portraitHeadroom + statusSpace)
     }
 
     // MARK: 绘制

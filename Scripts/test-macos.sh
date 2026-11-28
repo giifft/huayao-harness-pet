@@ -30,6 +30,7 @@ for spec in "$ROOT"/Tests/*.swift; do
     "$binary" "$ROOT/Tests/Fixtures/HarnessUsage.json" "$ZSTD"
   else
     swiftc -parse-as-library "${sources[@]}" "$spec" -o "$WORK/$name"
-    HUAYAO_RESOURCES="$TEST_CONTENTS/Resources" "$WORK/$name"
+    HUAYAO_RESOURCES="$TEST_CONTENTS/Resources" \
+      HUAYAO_PORTRAIT_LAYOUT="$ROOT/Resources/Pets/portrait-layout.json" "$WORK/$name"
   fi
 done

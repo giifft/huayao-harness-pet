@@ -110,7 +110,6 @@ final class PetController: NSObject, NSApplicationDelegate, NSMenuDelegate {
         window.contentView = root
 
         petals = PetalView(frame: rect)
-        petals.autoresizingMask = [.width, .height]
         root.addSubview(petals)
 
         scene = PetSceneView(frame: rect)
@@ -121,6 +120,7 @@ final class PetController: NSObject, NSApplicationDelegate, NSMenuDelegate {
         bubble.autoresizingMask = []
         bubble.onHit = { [weak self] in self?.handleBubbleTap() }
         root.addSubview(bubble)
+        petals.bubble = bubble
 
         statusPill = StatusPill(frame: NSRect(x: 8, y: 4, width: 120, height: 20))
         root.addSubview(statusPill)
@@ -319,25 +319,25 @@ final class PetController: NSObject, NSApplicationDelegate, NSMenuDelegate {
         if let screen = window.screen { updateMirroring(on: screen.visibleFrame) }
         window.contentView?.frame = NSRect(origin: .zero, size: frame.size)
         scene.frame = window.contentView!.bounds
-        petals.frame = window.contentView!.bounds
-        layoutBubble()
+        layoutOverlays()
         let pillWidth = min(210, newW - 16)
         statusPill.frame = NSRect(x: (newW - pillWidth) / 2, y: 3, width: pillWidth, height: 20)
     }
 
-    private func layoutBubble() {
+    private func layoutOverlays() {
         guard let bubble, let content = window.contentView else { return }
-        let cw = content.bounds.width
-        let maxTextW = max(80, min(210, cw - 56))
-        let size = BubbleView.measure(text: bubble.text.isEmpty ? "测" : bubble.text,
-                                      speaker: bubble.speaker,
-                                      image: bubble.image,
-                                      maxTextWidth: maxTextW)
-        let w = min(size.width, cw - 8)
-        let h = size.height + (bubble.link == nil ? 0 : 19)
-        let bx = (cw - w) / 2
-        let by = content.bounds.height - h - 2
-        bubble.frame = NSRect(x: bx, y: by, width: w, height: h)
+        petals.frame = scene.petalFrame
+        let portrait = scene.visiblePortraitFrame ?? scene.poseFrame
+        let bubbleFrame = BubbleLayout.frame(text: bubble.text, speaker: bubble.speaker,
+                                             image: bubble.image, hasLink: bubble.link != nil,
+                                             portrait: portrait, contentWidth: content.bounds.width)
+        if bubbleFrame.maxY + 4 > content.bounds.height {
+            var frame = window.frame
+            frame.size.height = bubbleFrame.maxY + 4
+            if let screen = window.screen { frame = fitted(frame, to: screen.visibleFrame) }
+            window.setFrame(frame, display: true)
+        }
+        bubble.frame = bubbleFrame
     }
 
     private func placeWindow() {
@@ -379,7 +379,7 @@ final class PetController: NSObject, NSApplicationDelegate, NSMenuDelegate {
         bubble.image = image
         bubble.link = link
         bubble.imageAboveText = interaction.bubbles.imageAboveText == true
-        layoutBubble()
+        layoutOverlays()
         bubble.animator().alphaValue = 1
 
         bubbleTimer?.invalidate()
@@ -864,6 +864,10 @@ extension PetController {
     }
 
     private func updateFeedbackPose() {
+        let previous = scene.feedbackPose?.id
+        defer {
+            if previous != scene.feedbackPose?.id { layoutOverlays() }
+        }
         guard interaction.statusPoses else {
             if scene.feedbackPose != nil { scene.feedbackPose = nil }
             return

@@ -20,6 +20,30 @@ final class PetPose {
 
     var pixelSize: NSSize { NSSize(width: cgImage.width, height: cgImage.height) }
 
+    /// 可见轮廓在透明画布中的位置。坐标原点在左下。
+    lazy var visibleBounds: NSRect = {
+        let width = min(cgImage.width, 432)
+        let height = min(cgImage.height, 432)
+        let mask = Self.buildMask(cgImage, width: width, height: height)
+        var left = width
+        var right = 0
+        var top = height
+        var bottom = 0
+        for y in 0..<height {
+            for x in 0..<width where mask[y * width + x] >= 12 {
+                left = min(left, x)
+                right = max(right, x + 1)
+                top = min(top, y)
+                bottom = max(bottom, y + 1)
+            }
+        }
+        guard right > left, bottom > top else { return NSRect(x: 0, y: 0, width: 1, height: 1) }
+        return NSRect(x: CGFloat(left) / CGFloat(width),
+                      y: CGFloat(height - bottom) / CGFloat(height),
+                      width: CGFloat(right - left) / CGFloat(width),
+                      height: CGFloat(bottom - top) / CGFloat(height))
+    }()
+
     lazy var menuThumbnail: NSImage = {
         let image = self.image
         let imageSize = pixelSize
@@ -36,17 +60,16 @@ final class PetPose {
 
     /// 该像素是否不透明（用于点击穿透判定）。坐标原点在左下。
     func isOpaque(atNormalized p: NSPoint) -> Bool {
-        let mask = alphaMask ?? Self.buildMask(cgImage)
-        alphaMask = mask
         let w = cgImage.width, h = cgImage.height
+        let mask = alphaMask ?? Self.buildMask(cgImage, width: w, height: h)
+        alphaMask = mask
         let x = Int((p.x * CGFloat(w)).rounded(.down))
         let y = Int(((1 - p.y) * CGFloat(h)).rounded(.down))
         guard x >= 0, x < w, y >= 0, y < h else { return false }
         return mask[y * w + x] > 24
     }
 
-    private static func buildMask(_ cg: CGImage) -> [UInt8] {
-        let w = cg.width, h = cg.height
+    private static func buildMask(_ cg: CGImage, width w: Int, height h: Int) -> [UInt8] {
         var rgba = [UInt8](repeating: 0, count: w * h * 4)
         let cs = CGColorSpaceCreateDeviceRGB()
         if let ctx = CGContext(data: &rgba, width: w, height: h, bitsPerComponent: 8,
