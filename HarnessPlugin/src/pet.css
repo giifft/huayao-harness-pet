@@ -8,9 +8,8 @@
   --hy-active: #f6e2e1;
   --hy-muted: #68544d;
   --hy-width: 224px;
-  --hy-stage: 230px;
-  --hy-solo: 155px;
-  --hy-duo: 175px;
+  --hy-stage: 268px;
+  --hy-portrait: 224px;
   --hy-stage-size: min(var(--hy-stage), 47vh);
   position: absolute;
   z-index: 2;
@@ -97,8 +96,8 @@
 .huayao-desktop__actor {
   display: grid;
   place-items: end center;
-  width: max-content;
-  max-width: 100%;
+  width: min(var(--hy-portrait), 40vh, 100%);
+  aspect-ratio: 1;
   border: 0;
   background: none;
   padding: 0;
@@ -107,14 +106,12 @@
 
 .huayao-desktop__actor img {
   display: block;
-  height: min(var(--hy-solo), 32vh);
-  max-width: 100%;
+  width: 100%;
+  height: auto;
+  aspect-ratio: 1;
   object-fit: contain;
   filter: drop-shadow(0 3px 5px #39252a44);
-}
-
-.huayao-desktop__stage[data-mode="duo"] .huayao-desktop__actor img {
-  height: min(var(--hy-duo), 35vh);
+  transform-origin: 50% calc(1600 / 1728 * 100%);
 }
 
 .huayao-desktop__actor img[data-hop] {
@@ -279,16 +276,14 @@ body[data-ds-dark-theme] .huayao-desktop {
 
 .huayao-desktop[data-size="small"] {
   --hy-width: 198px;
-  --hy-stage: 186px;
-  --hy-solo: 117px;
-  --hy-duo: 133px;
+  --hy-stage: 211px;
+  --hy-portrait: 168px;
 }
 
 .huayao-desktop[data-size="large"] {
   --hy-width: 280px;
-  --hy-stage: 282px;
-  --hy-solo: 204px;
-  --hy-duo: 229px;
+  --hy-stage: 324px;
+  --hy-portrait: 280px;
 }
 
 .huayao-desktop__draggable { touch-action: none; user-select: none; cursor: grab; }

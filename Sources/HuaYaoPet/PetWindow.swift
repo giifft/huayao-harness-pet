@@ -34,7 +34,7 @@ final class PetSceneView: NSView {
     var lowBalance = false
 
     // 显示参数
-    var spriteHeight: CGFloat = 190          // 单个立绘的高度（点）
+    var portraitSide: CGFloat = 300
     private let statusSpace: CGFloat = 30
     // 顶部留给气泡：需容纳 3 行中文（约 20pt/行）+ 名字 + 内边距 + 尖角
     private let bubbleSpace: CGFloat = 132
@@ -52,23 +52,16 @@ final class PetSceneView: NSView {
 
     // MARK: 布局
 
-    private var poseSize: NSSize {
-        guard let pose else { return .zero }
-        let height = spriteHeight * (pose.kind == .duo ? 1.28 : 1)
-        let width = height * pose.pixelSize.width / pose.pixelSize.height
-        return NSSize(width: width, height: height)
-    }
-
     private var renderedPose: PetPose? { feedbackPose ?? pose }
 
-    private var poseFrame: NSRect {
-        let footprint = poseSize
-        guard let drawn = renderedPose, footprint.width > 0, footprint.height > 0 else { return .zero }
-        let factor = min(footprint.width / drawn.pixelSize.width, footprint.height / drawn.pixelSize.height)
-        let size = drawn.pixelSize.scaled(by: factor)
-        return NSRect(x: (bounds.width - size.width) / 2,
-                      y: statusSpace + hopOffset,
-                      width: size.width, height: size.height)
+    var poseFrame: NSRect {
+        NSRect(x: (bounds.width - portraitSide) / 2,
+               y: statusSpace + hopOffset,
+               width: portraitSide, height: portraitSide)
+    }
+
+    private var portraitBaseline: CGFloat {
+        poseFrame.minY + portraitSide * (128.0 / 1728.0)
     }
 
     private func poseTransform(_ frame: NSRect) -> CGAffineTransform {
@@ -78,8 +71,7 @@ final class PetSceneView: NSView {
     }
 
     func desiredSize() -> NSSize {
-        let size = poseSize
-        return NSSize(width: max(size.width + 28, 240), height: size.height + bubbleSpace + statusSpace)
+        NSSize(width: max(portraitSide + 28, 240), height: portraitSide + bubbleSpace + statusSpace)
     }
 
     // MARK: 绘制
@@ -97,7 +89,7 @@ final class PetSceneView: NSView {
         let shadowW = f.width * 0.62
         let shadowH: CGFloat = 9
         let sx = f.midX - shadowW / 2
-        let sy = f.minY - 2
+        let sy = portraitBaseline - 2
         ctx.saveGState()
         let colors = [NSColor.black.withAlphaComponent(0.16).cgColor,
                       NSColor.black.withAlphaComponent(0).cgColor] as CFArray

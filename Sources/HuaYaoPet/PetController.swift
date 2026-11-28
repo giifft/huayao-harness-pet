@@ -34,7 +34,7 @@ final class PetController: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private let poseMenu = NSMenu(title: "选择立绘")
     private var modeMenuItems: [PetMode: NSMenuItem] = [:]
     private var mode: PetMode = .duo
-    private let baseSpriteHeight: CGFloat = 196
+    private let basePortraitSide: CGFloat = 300
 
     // MARK: 启动
 
@@ -298,7 +298,7 @@ final class PetController: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     private func relayout(keepOnScreen: Bool = true) {
         guard let window, let scene else { return }
-        scene.spriteHeight = baseSpriteHeight * currentScale
+        scene.portraitSide = basePortraitSide * currentScale
         let size = scene.desiredSize()
         var frame = window.frame
         // 以底边中心为锚点缩放，桌宠不会乱跳

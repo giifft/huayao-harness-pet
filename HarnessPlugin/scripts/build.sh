@@ -10,6 +10,7 @@ trap 'rm -rf "$package"' EXIT
 mkdir -p "$package/lib"
 cd "$plugin"
 python3 scripts/prepare-art.py
+python3 ../Scripts/audit-portraits.py --harness src/portraits.generated.json
 esbuild=(npx --yes esbuild@0.25.12)
 if [ -n "${ESBUILD_BIN:-}" ]; then
   esbuild=("$ESBUILD_BIN")

@@ -62,8 +62,8 @@ cat > "$CONTENTS/Info.plist" <<'PLIST'
   <key>CFBundleName</key>              <string>花妖桌宠</string>
   <key>CFBundleDisplayName</key>       <string>花妖桌宠</string>
   <key>CFBundleIdentifier</key>        <string>local.huayao.desktoppet</string>
-  <key>CFBundleVersion</key>           <string>1.3.0</string>
-  <key>CFBundleShortVersionString</key><string>1.3.0</string>
+  <key>CFBundleVersion</key>           <string>1.3.1</string>
+  <key>CFBundleShortVersionString</key><string>1.3.1</string>
   <key>CFBundleExecutable</key>        <string>HuaYaoPet</string>
   <key>CFBundlePackageType</key>       <string>APPL</string>
   <key>LSMinimumSystemVersion</key>    <string>13.0</string>

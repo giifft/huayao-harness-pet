@@ -5,6 +5,7 @@ ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 APP="${1:-$ROOT/花妖桌宠.app}"
 ZSTD="$(command -v zstd)" || { echo "Install the zstd CLI before running the tests." >&2; exit 1; }
 codesign --verify --deep --strict "$APP"
+python3 "$ROOT/Scripts/audit-portraits.py" --native "$APP/Contents/Resources/Pets"
 
 WORK="$(mktemp -d "${TMPDIR:-/tmp}/huayao-tests.XXXXXX")"
 trap 'rm -rf "$WORK"' EXIT
@@ -29,6 +30,6 @@ for spec in "$ROOT"/Tests/*.swift; do
     "$binary" "$ROOT/Tests/Fixtures/HarnessUsage.json" "$ZSTD"
   else
     swiftc -parse-as-library "${sources[@]}" "$spec" -o "$WORK/$name"
-    "$WORK/$name"
+    HUAYAO_RESOURCES="$TEST_CONTENTS/Resources" "$WORK/$name"
   fi
 done

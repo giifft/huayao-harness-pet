@@ -47,7 +47,7 @@ internal sealed partial class PetWindow
         transforms.Children.Add(dragTilt);
         transforms.Children.Add(hop);
         portrait.RenderTransform = transforms;
-        portrait.RenderTransformOrigin = new Point(.5, .77);
+        portrait.RenderTransformOrigin = new Point(.5, 1600.0 / 1728.0);
         LoadBubblePictures();
         bubbleLinkButton.Click += (_, _) =>
         {

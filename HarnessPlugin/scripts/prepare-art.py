@@ -19,9 +19,9 @@ for mode, prefix in modes.items():
     for path in sorted(assets.glob(f'{mode}_*.png')):
         code = path.stem.split('_')[-1]
         pose_id = f'{prefix}{code[-2:]}'
-        img = Image.open(path).convert('RGBA')
-        img = img.crop(img.getbbox())
-        img.thumbnail((380, 380), Image.Resampling.LANCZOS)
+        with Image.open(path) as source_image:
+            img = source_image.convert('RGBA')
+        img.thumbnail((560, 560), Image.Resampling.LANCZOS)
         buffer = io.BytesIO()
         img.save(buffer, format='WEBP', quality=88, method=6)
         src = 'data:image/webp;base64,' + base64.b64encode(buffer.getvalue()).decode('ascii')

@@ -1,0 +1,393 @@
+{
+  "canvas_px": [
+    1728,
+    1728
+  ],
+  "anchor_px": [
+    864,
+    1600
+  ],
+  "alpha_threshold_for_anchor": 12,
+  "files": {
+    "duo_D01.png": {
+      "catalog_id": "01/D01",
+      "sha256": "873a7b64dff8632881a7e0406f8dab5ce6730c66bd85805d36d3bc629966915d",
+      "visible_bounds_px": [
+        344,
+        556,
+        1385,
+        1600
+      ]
+    },
+    "duo_D02.png": {
+      "catalog_id": "01/D02",
+      "sha256": "0615b2859fb0229897289b162cee656311eb277302c27530a923c00f8f2d4f9b",
+      "visible_bounds_px": [
+        344,
+        517,
+        1385,
+        1600
+      ]
+    },
+    "duo_D03.png": {
+      "catalog_id": "01/D03",
+      "sha256": "9648d80a668dd6a1c5bbbe808884866ae094adeb3ba604ba32bc4cde69c30ac5",
+      "visible_bounds_px": [
+        374,
+        490,
+        1355,
+        1600
+      ]
+    },
+    "duo_D04.png": {
+      "catalog_id": "01/D04",
+      "sha256": "f7caea57ad76512107a1d62651a98e0fb6eb0e87285af14ae2c92ee1197f84c0",
+      "visible_bounds_px": [
+        446,
+        458,
+        1283,
+        1600
+      ]
+    },
+    "duo_D05.png": {
+      "catalog_id": "01/D05",
+      "sha256": "cee9600de3eb0840789ce25e6c7c6800ca15a7bf7cafae0233569cae287b6a34",
+      "visible_bounds_px": [
+        383,
+        561,
+        1345,
+        1600
+      ]
+    },
+    "duo_D06.png": {
+      "catalog_id": "01/D06",
+      "sha256": "578391cce70f1bed61f8542bbf118b287a3457d29e3e60ea568ad4f8a5c1c05d",
+      "visible_bounds_px": [
+        423,
+        479,
+        1305,
+        1600
+      ]
+    },
+    "duo_D07.png": {
+      "catalog_id": "01/D07",
+      "sha256": "91caf875991962edfc8d3cbfb2b7ead826693e622caaf9a1c671c3042c22d317",
+      "visible_bounds_px": [
+        383,
+        697,
+        1345,
+        1600
+      ]
+    },
+    "duo_D08.png": {
+      "catalog_id": "01/D08",
+      "sha256": "ca713e5ddb8fae80987730620482369450f8c0c0754b2bb78bc2d915e409cf11",
+      "visible_bounds_px": [
+        257,
+        943,
+        1471,
+        1600
+      ]
+    },
+    "duo_D09.png": {
+      "catalog_id": "01/D09",
+      "sha256": "fa4d53e6ec9c86892163eb9b7ffe1d3c5e9180bcc23cd146c94f76d3c156f0a0",
+      "visible_bounds_px": [
+        400,
+        617,
+        1327,
+        1600
+      ]
+    },
+    "duo_D10.png": {
+      "catalog_id": "01/D10",
+      "sha256": "58b15cf42d36c5a9874e0b678d6dda4647a6781586c0d030127117e557deae45",
+      "visible_bounds_px": [
+        374,
+        544,
+        1355,
+        1600
+      ]
+    },
+    "duo_D11.png": {
+      "catalog_id": "01/D11",
+      "sha256": "710ed1bc8d8947e681e5cdf6f435a4366fdb582310b7abd9f612de9955718d04",
+      "visible_bounds_px": [
+        344,
+        446,
+        1385,
+        1600
+      ]
+    },
+    "duo_D12.png": {
+      "catalog_id": "01/D12",
+      "sha256": "f37b5f66b4009540e4d4636affb822ca2f5d1a0bd68c4c85791c592796accdda",
+      "visible_bounds_px": [
+        383,
+        510,
+        1345,
+        1600
+      ]
+    },
+    "duo_D13.png": {
+      "catalog_id": "01/D13",
+      "sha256": "2e9c0b657d12f6fb3477787f4535ef6bbf28cc10087f1990918c08b5defadbbb",
+      "visible_bounds_px": [
+        344,
+        659,
+        1385,
+        1600
+      ]
+    },
+    "duo_D14.png": {
+      "catalog_id": "01/D14",
+      "sha256": "4c7334db02b4e6e98f5707961f869a6141899c7c7af5ff73c77e7571b9e989c4",
+      "visible_bounds_px": [
+        344,
+        631,
+        1385,
+        1600
+      ]
+    },
+    "duo_D15.png": {
+      "catalog_id": "01/D15",
+      "sha256": "0229aefc0f1b1f2d260b47e7357cf6b755595ba1a5f5e65e23a0990d583dd892",
+      "visible_bounds_px": [
+        364,
+        581,
+        1364,
+        1600
+      ]
+    },
+    "duo_D16.png": {
+      "catalog_id": "01/D16",
+      "sha256": "a38403b534a538b0cff0aaf2b69b5ae10088f18858dbc744d62e953151a1da0c",
+      "visible_bounds_px": [
+        364,
+        588,
+        1364,
+        1600
+      ]
+    },
+    "duo_D17.png": {
+      "catalog_id": "03/K08",
+      "sha256": "810e3166731b7c7073ca1037fec77c6dc99748b253b9b26327f1542885bfc28c",
+      "visible_bounds_px": [
+        400,
+        794,
+        1328,
+        1600
+      ]
+    },
+    "duo_D18.png": {
+      "catalog_id": "03/K05",
+      "sha256": "afe1a971d4f77b947a91aaa84cd60acb96c229e0a37c76e24379528e7acc165a",
+      "visible_bounds_px": [
+        399,
+        801,
+        1329,
+        1600
+      ]
+    },
+    "duo_D19.png": {
+      "catalog_id": "03/K04",
+      "sha256": "9bcd6759c0d4c952616b527ed987360400ceea7902a7333f6028f5d3c503ceab",
+      "visible_bounds_px": [
+        381,
+        809,
+        1348,
+        1600
+      ]
+    },
+    "duo_D20.png": {
+      "catalog_id": "03/K09",
+      "sha256": "387b17d8d2ca54c6961bd96e3b596caf90c9a359eb2afec8f75106a111b483e3",
+      "visible_bounds_px": [
+        399,
+        811,
+        1328,
+        1600
+      ]
+    },
+    "duo_D21.png": {
+      "catalog_id": "03/K16",
+      "sha256": "1d94269ae83020e2ed76b0dcb392ca6164671c8f6f8e0652d003dd17071e04ef",
+      "visible_bounds_px": [
+        413,
+        823,
+        1316,
+        1600
+      ]
+    },
+    "hua_H01.png": {
+      "catalog_id": "01/H01",
+      "sha256": "77650c93d2ae852bda96382124ca9f7ab3fdc403d3a855d91c6532a771e7c621",
+      "visible_bounds_px": [
+        524,
+        863,
+        1204,
+        1600
+      ]
+    },
+    "hua_H02.png": {
+      "catalog_id": "01/H02",
+      "sha256": "53a7ad48bc23f2b62e2aaea856224cec8547ad38e015645e1ce0039f041c8b42",
+      "visible_bounds_px": [
+        484,
+        854,
+        1245,
+        1600
+      ]
+    },
+    "hua_H03.png": {
+      "catalog_id": "01/H03",
+      "sha256": "f7cbbec1015d4ea3a4d0813ad819e8b7479c644326313fe258ad9907f89f9fb1",
+      "visible_bounds_px": [
+        500,
+        883,
+        1229,
+        1600
+      ]
+    },
+    "hua_H04.png": {
+      "catalog_id": "01/H04",
+      "sha256": "d28c0619cfab5e25b5e358f72cb9557ccf8e354d56e058964b79a6015e94ce84",
+      "visible_bounds_px": [
+        484,
+        727,
+        1245,
+        1600
+      ]
+    },
+    "hua_H05.png": {
+      "catalog_id": "01/H05",
+      "sha256": "76a4d2ab03f1e4f0d4902a9ef149f2185ba8a8c2a5519f964ab1fb7df80a856c",
+      "visible_bounds_px": [
+        593,
+        838,
+        1135,
+        1600
+      ]
+    },
+    "hua_H06.png": {
+      "catalog_id": "01/H06",
+      "sha256": "6245732bcebd98e62615e563678832e8e4c26566e1bf2effd7e0d5b4600bef93",
+      "visible_bounds_px": [
+        466,
+        910,
+        1263,
+        1600
+      ]
+    },
+    "hua_H07.png": {
+      "catalog_id": "01/H07",
+      "sha256": "2b0b86b9a2750c586d35e820f50d69f5b7bdcc0c1a4e8e80462653eea1047932",
+      "visible_bounds_px": [
+        533,
+        884,
+        1195,
+        1600
+      ]
+    },
+    "hua_H08.png": {
+      "catalog_id": "01/H08",
+      "sha256": "908d232cca42590a7c6c49fde2f7420c31187bb699697f4dfa626857e93871c1",
+      "visible_bounds_px": [
+        575,
+        686,
+        1153,
+        1600
+      ]
+    },
+    "hua_H09.png": {
+      "catalog_id": "01/H09",
+      "sha256": "72e67bfc019483b0ff7901167626994d0d817e21543b6e2c2f8c52be6078871d",
+      "visible_bounds_px": [
+        472,
+        820,
+        1257,
+        1600
+      ]
+    },
+    "hua_H10.png": {
+      "catalog_id": "01/H10",
+      "sha256": "d14a84579af6abc9c9dcd4b3c5af1de77dd76dc3a8f28ea904b62189a155a96e",
+      "visible_bounds_px": [
+        484,
+        804,
+        1245,
+        1600
+      ]
+    },
+    "hua_H11.png": {
+      "catalog_id": "01/H11",
+      "sha256": "83448ea3b2ed1e64b917f865721f49795ce729cbde583c08bf640ec1534b01a7",
+      "visible_bounds_px": [
+        439,
+        773,
+        1289,
+        1600
+      ]
+    },
+    "hua_H12.png": {
+      "catalog_id": "01/H12",
+      "sha256": "3afd4d6cf840c7594bda9e14860ed485b55aaa363aaebaf7c64fe2478694d981",
+      "visible_bounds_px": [
+        622,
+        672,
+        1106,
+        1600
+      ]
+    },
+    "hua_H13.png": {
+      "catalog_id": "01/H13",
+      "sha256": "7669397fef7417ae53a98a4c23b516292a274763a3776e75c36f902cf36776e4",
+      "visible_bounds_px": [
+        459,
+        709,
+        1269,
+        1600
+      ]
+    },
+    "sheng_01.png": {
+      "catalog_id": "01/S01",
+      "sha256": "41b53d2f04e24544736434450aa7b94722e930ce4fd1c914f607a304334a6ca1",
+      "visible_bounds_px": [
+        612,
+        686,
+        1117,
+        1600
+      ]
+    },
+    "sheng_02.png": {
+      "catalog_id": "01/S02",
+      "sha256": "7b64b7542acaa6762f4032ebcebdca568d969b70d08610266bfe639ddc31552a",
+      "visible_bounds_px": [
+        520,
+        786,
+        1208,
+        1600
+      ]
+    },
+    "sheng_03.png": {
+      "catalog_id": "01/S03",
+      "sha256": "cc5991dd31eea6da7ecb0e1769bfd39442b323c1fbce3c1644ac92ab793726a9",
+      "visible_bounds_px": [
+        610,
+        672,
+        1117,
+        1600
+      ]
+    },
+    "sheng_04.png": {
+      "catalog_id": "01/S04",
+      "sha256": "bf8721716df0f242e760f04c8a9fb61c180629588ee10003d1e78d6832985604",
+      "visible_bounds_px": [
+        494,
+        726,
+        1235,
+        1600
+      ]
+    }
+  }
+}

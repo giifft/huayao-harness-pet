@@ -294,8 +294,11 @@ internal sealed partial class PetWindow : Window
         prefs.Zoom = Math.Clamp(zoom, .70, 1.55);
         var center = double.IsNaN(Left) || double.IsNaN(Width) ? (double?)null : Left + Width / 2;
         var bottom = double.IsNaN(Top) || double.IsNaN(Height) ? (double?)null : Top + Height;
-        Width = Math.Max(230, 255 * prefs.Zoom);
-        Height = 104 + (ActiveMode.Id == "duo" ? 180 : 161) * prefs.Zoom;
+        var portraitSide = 300 * prefs.Zoom;
+        portrait.Width = portraitSide;
+        portrait.Height = portraitSide;
+        Width = Math.Max(230, portraitSide + 20);
+        Height = portraitSide + 112;
         if (center.HasValue) Left = center.Value - Width / 2;
         if (bottom.HasValue) Top = bottom.Value - Height;
         if (remember)
