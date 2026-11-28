@@ -1,6 +1,6 @@
 {
   "name": "huayao-harness-pet",
-  "version": "1.2.1",
+  "version": "1.2.2",
   "description": "越剧《花妖》桌宠，含会话状态、拖拽、花台互动与本地存档",
   "type": "module",
   "main": "./lib/host.js",

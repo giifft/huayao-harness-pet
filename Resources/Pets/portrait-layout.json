@@ -251,13 +251,15 @@
     },
     "hua_H04.png": {
       "catalog_id": "01/H04",
-      "sha256": "d28c0619cfab5e25b5e358f72cb9557ccf8e354d56e058964b79a6015e94ce84",
+      "sha256": "bedc9cf07597578a07ce0a205f0ce876f18c99084275a6691bfad5d276c57cce",
       "visible_bounds_px": [
         484,
         727,
         1245,
         1600
-      ]
+      ],
+      "source_release": "v1.3.0",
+      "source_sha256": "c2fbf9b58fef9e40987b95c7ee074e517f6151de3753fe098b304abfc4f295ba"
     },
     "hua_H05.png": {
       "catalog_id": "01/H05",
